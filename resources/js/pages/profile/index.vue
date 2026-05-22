@@ -1,7 +1,26 @@
 <template>
     <MainLayout>
-        <div v-if="!isLoading && !error && profileStore.id" class="pt-[30px] px-5">
+        <div
+            v-if="!isLoading && !error && profileStore.id"
+            class="pt-[30px] px-5 align-center xl:max-w-7xl xl:mx-auto"
+        >
             <ProfileHeader />
+
+            <!-- DADA Coin Balance -->
+            <div v-if="dadaBalance !== null && profileStore.isSelf" 
+                 class="flex items-center justify-between px-1 py-3 mt-1 mx-0 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-700/50">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🪙</span>
+                    <div>
+                        <div class="text-sm font-semibold text-amber-800 dark:text-amber-300">DADA Coin</div>
+                        <div class="text-xs text-amber-600 dark:text-amber-400">Minima blockchain</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xl font-bold text-amber-800 dark:text-amber-200">{{ formatDada(dadaBalance) }}</div>
+                    <div v-if="dadaLoading" class="text-xs text-amber-500 animate-pulse">loading...</div>
+                </div>
+            </div>
 
             <ProfileTabBar
                 :show-private-tabs="
@@ -11,6 +30,8 @@
                 @filter-change="handleFilterChange"
                 ref="tabBarRef"
             />
+
+            <ProfilePlaylists v-if="playlists && playlists.length" :playlists="playlists" />
 
             <div v-if="show" class="mt-4 grid lg:grid-cols-4 md:grid-cols-3 grid-cols-2 gap-3">
                 <div v-for="post in displayPosts" :key="post.id">
@@ -133,6 +154,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import MainLayout from '~/layouts/MainLayout.vue'
 import ProfileVideoCard from '~/components/Profile/ProfileVideoCard.vue'
+import ProfilePlaylists from '~/components/Profile/ProfilePlaylists.vue'
 import { useProfileStore } from '~/stores/profile'
 import { useAuthStore } from '~/stores/auth'
 import { useUtils } from '@/composables/useUtils'
@@ -157,8 +179,10 @@ const retryLoading = ref(false)
 const currentTab = ref('videos')
 const currentFilter = ref('Latest')
 const tabBarRef = ref(null)
+const dadaBalance = ref(null)
+const dadaLoading = ref(false)
 
-const { posts, allLikes, bookmarkedPosts } = storeToRefs(profileStore)
+const { posts, allLikes, bookmarkedPosts, playlists } = storeToRefs(profileStore)
 
 const displayPosts = computed(() => {
     if (currentTab.value === 'bookmarks') {
@@ -292,6 +316,12 @@ const gotoProfile = (id) => {
     router.push(`/@${id}`)
 }
 
+const sanitize = (s) =>
+    s.replace(
+        /[<>&"']/g,
+        (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]
+    )
+
 const loadProfileData = async (userId) => {
     try {
         isLoading.value = true
@@ -306,7 +336,7 @@ const loadProfileData = async (userId) => {
             error.value = {
                 type: 'not-found',
                 message: t('profile.profile404ErrorMessage', {
-                    userid: userId
+                    userid: sanitize(userId)
                 })
             }
         } else if ([500, 502, 503].includes(err.response?.status)) {
@@ -376,8 +406,30 @@ const loadMorePosts = async () => {
     }
 }
 
+const formatDada = (val) => {
+    if (val === null || val === undefined) return '0'
+    return Number(val).toLocaleString()
+}
+
+const fetchDadaBalance = async () => {
+    if (!authStore.authenticated) return
+    try {
+        dadaLoading.value = true
+        const axios = (await import('~/plugins/axios')).default
+        const instance = axios.getAxiosInstance()
+        const res = await instance.get('/api/v1/dada/balance')
+        dadaBalance.value = res.data.balance
+    } catch (e) {
+        console.error('Failed to fetch DADA balance:', e)
+        dadaBalance.value = 0
+    } finally {
+        dadaLoading.value = false
+    }
+}
+
 onMounted(async () => {
     await loadProfileData(route.params.id)
+    fetchDadaBalance()
     window.addEventListener('scroll', handleScroll)
 })
 

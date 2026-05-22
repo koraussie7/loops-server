@@ -30,6 +30,8 @@
                             <source :src="videoUrl" type="video/mp4" />
                         </video>
 
+                        <DadaCoinAnimation ref="dadaCoinRef" />
+
                         <div
                             v-if="isSensitive && !isSensitiveRevealed"
                             class="absolute inset-0 bg-black/90 rounded-none lg:rounded-xl flex flex-col items-center justify-center z-30"
@@ -418,6 +420,7 @@ import { useCommentStore } from '~/stores/comments'
 import { useFeedInteraction } from '~/composables/useFeedInteraction'
 import ShareModal from '@/components/Feed/ShareModal.vue'
 import Comments from '@/components/Status/Comments.vue'
+import DadaCoinAnimation from '@/components/Feed/DadaCoinAnimation.vue'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import LoopLink from '../LoopLink.vue'
@@ -481,6 +484,8 @@ const videoWidth = ref(null)
 const videoHeight = ref(null)
 const videoOrientation = ref('portrait')
 const shouldShowComments = computed(() => commentStore.shouldKeepCommentsOpen)
+const dadaCoinRef = ref(null)
+const lastDadaReward = ref(null)
 
 const {
     hasInteracted: hasGlobalInteraction,
@@ -779,7 +784,7 @@ onMounted(async () => {
     }
 })
 
-const flushTracking = (reason = 'unknown') => {
+const flushTracking = async (reason = 'unknown') => {
     let pendingSession = 0
     if (watchStartTime.value > 0) {
         pendingSession = (Date.now() - watchStartTime.value) / 1000
@@ -789,7 +794,16 @@ const flushTracking = (reason = 'unknown') => {
 
     if (totalTime > 0.5) {
         const isCompleted = videoDuration.value > 0 && totalTime >= videoDuration.value * 0.8
-        recordImpression(props.videoId, totalTime, isCompleted)
+        const result = await recordImpression(props.videoId, totalTime, isCompleted)
+        
+        // Handle DADA reward
+        if (result && result.dada_reward && result.dada_reward.sent) {
+            const earned = result.dada_reward.earned
+            if (earned > 0 && dadaCoinRef.value) {
+                lastDadaReward.value = earned
+                dadaCoinRef.value.showReward(earned)
+            }
+        }
     }
 
     accumulatedWatchTime.value = 0

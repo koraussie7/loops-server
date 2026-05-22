@@ -155,6 +155,52 @@ class VideoOptimizeJob implements ShouldQueue
             $video->has_processed = true;
             $video->has_audio = (bool) $hasAudio;
             $video->status = 2;
+
+            // === HLS 변환 추가 ===
+            try {
+                $hlsBase = str_replace('.720p.mp4', '', $name);
+                $hlsPlaylist = $hlsBase . '.m3u8';
+
+                if (!Storage::disk('s3')->exists($hlsPlaylist)) {
+                    $hlsFormat = (new X264('aac'))
+                        ->setKiloBitrate(0)
+                        ->setAdditionalParameters([
+                            '-preset', 'slow',
+                            '-crf', '23',
+                            '-maxrate', $maxBitrate,
+                            '-bufsize', $bufSize,
+                            '-profile:v', 'high',
+                            '-level', '4.1',
+                            '-pix_fmt', 'yuv420p',
+                            '-ac', '2',
+                            '-t', (string) $maxDuration,
+                            '-hls_time', '6',
+                            '-hls_list_size', '0',
+                            '-hls_segment_filename',
+                            Storage::disk('s3')->path($hlsBase . '_%05d.ts'),
+                        ]);
+
+                    FFMpeg::fromDisk('s3')
+                        ->open($name)
+                        ->addFilter(['-vf', 'scale=720:-2,format=yuv420p'])
+                    // @phpstan-ignore-next-line
+                        ->exportForHLS()
+                        ->addFormat($hlsFormat)
+                        ->toDisk('s3')
+                        ->withVisibility('public')
+                        ->save($hlsPlaylist);
+
+                    $video->has_hls = true;
+                    Log::info('HLS generated for video', ['video_id' => $video->id, 'playlist' => $hlsPlaylist]);
+                }
+            } catch (\Exception $hlsErr) {
+                Log::warning('HLS generation failed (non-fatal)', [
+                    'video_id' => $video->id,
+                    'error' => $hlsErr->getMessage(),
+                ]);
+                // HLS 실패는 치명적이지 않음 — MP4는 이미 OK
+            }
+
             $video->save();
 
             $media->cleanupTemporaryFiles();

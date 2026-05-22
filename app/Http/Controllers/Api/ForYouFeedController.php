@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\FeedFeedback;
 use App\Models\Video;
 use App\Services\ConfigService;
+use App\Services\DadaRewardService;
 use App\Services\ForYouFeedService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,7 +52,8 @@ class ForYouFeedController extends Controller
             return $this->error('Please finish setting up your account', 403);
         }
 
-        $profile = $request->user()->profile;
+        $user = $request->user();
+        $profile = $user->profile;
 
         if ($validated['completed']) {
             Video::published()->whereKey($validated['video_id'])->increment('views');
@@ -64,7 +66,29 @@ class ForYouFeedController extends Controller
             $validated['completed'] ?? false
         );
 
-        return response()->json(['success' => true]);
+        // === DADA Reward Integration ===
+        $reward = null;
+        if ($validated['watch_duration'] >= 10) {
+            try {
+                $video = Video::find($validated['video_id']);
+                if ($video) {
+                    $dadaService = app(DadaRewardService::class);
+                    $reward = $dadaService->processViewReward(
+                        $user,
+                        $video,
+                        $validated['watch_duration'],
+                        $validated['completed'] ?? false
+                    );
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("DADA Reward error: " . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'dada_reward' => $reward,
+        ]);
     }
 
     public function recordFeedback(Request $request): JsonResponse
