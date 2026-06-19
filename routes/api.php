@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\CommerceAnalyticsController;
 use App\Http\Controllers\Api\AffiliateController;
 use App\Http\Controllers\Api\LiveCommerceController;
 use App\Http\Controllers\Api\AutoStoreController;
+use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\AppleAuthController;
 use App\Http\Controllers\AtomFeedController;
 use App\Http\Controllers\Auth\AccountSwitcherController;
@@ -457,6 +458,16 @@ Route::prefix('api')->group(function () {
         Route::get('/dashboard', [AffiliateController::class, 'dashboard'])->middleware('auth:web,api');
         Route::get('/admin', [AffiliateController::class, 'adminIndex'])->middleware('auth:web,api');
         Route::get('/track/{code}', [AffiliateController::class, 'trackClick']);
+    });
+
+    // ── DADA AI Blockchain Video Rewards ──
+    Route::prefix('/v1/rewards')->group(function () {
+        Route::get('/health', [RewardController::class, 'health']);
+        Route::post('/watch/start', [RewardController::class, 'watchStart'])->middleware('auth:web,api');
+        Route::post('/watch/update', [RewardController::class, 'watchUpdate'])->middleware('auth:web,api');
+        Route::post('/watch/end', [RewardController::class, 'watchEnd'])->middleware('auth:web,api');
+        Route::get('/history', [RewardController::class, 'history'])->middleware('auth:web,api');
+        Route::get('/status', [RewardController::class, 'status'])->middleware('auth:web,api');
     });
 
     // Curated Onboarding

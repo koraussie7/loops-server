@@ -64,6 +64,14 @@
                             class="pointer-events-auto"
                         />
 
+                        <!-- DADA AI Blockchain Rewards Badge -->
+                        <DadaRewardBadge
+                            :earned-tokens="rewardEarnedTokens"
+                            :is-tracking="rewardIsTracking"
+                            :reward-per-second="10"
+                            :visible="authStore.authenticated"
+                        />
+
                         <div
                             v-if="!isPaused && showMobilePauseButton && isMobile && canInteract"
                             class="mobile-pause-overlay"
@@ -423,6 +431,10 @@ import P2PEngineMedia from '@swarmcloud/media'
 import ProductTag from '@/components/Commerce/ProductTag.vue'
 import axios from 'axios'
 
+// ── DADA AI Blockchain Video Rewards ──
+import { useVideoRewards } from '~/composables/useVideoRewards'
+import DadaRewardBadge from '@/components/Feed/DadaRewardBadge.vue'
+
 const props = defineProps({
     videoId: { type: String, required: true },
     videoUrl: { type: String, required: true },
@@ -465,6 +477,16 @@ const isSensitiveRevealed = ref(false)
 const pendingPlay = ref(false)
 const { openReportModal } = useReportModal()
 const queryClient = useQueryClient()
+
+// ── DADA AI Blockchain Rewards ──
+const {
+    earnedTokens: rewardEarnedTokens,
+    isTracking: rewardIsTracking,
+    accumulatedSeconds: rewardAccumulatedSeconds,
+    startWatching: rewardStartWatching,
+    stopWatching: rewardStopWatching,
+    fetchRewardStatus: rewardFetchStatus
+} = useVideoRewards()
 const { alertModal, confirmModal } = useAlertModal()
 const { t } = useI18n()
 const videoWidth = ref(null)
@@ -514,28 +536,13 @@ const displayCommentCount = computed(() => {
 })
 
 const videoAspectClass = computed(() => {
-    if (!videoWidth.value || !videoHeight.value) {
-        return 'lg:max-w-sm xl:max-w-md 2xl:max-w-lg lg:aspect-[9/16]'
-    }
-
-    const aspectRatio = videoWidth.value / videoHeight.value
-
-    if (videoOrientation.value === 'portrait') {
-        return 'lg:max-w-sm xl:max-w-md 2xl:max-w-lg lg:aspect-[9/16]'
-    } else if (videoOrientation.value === 'landscape') {
-        return 'lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl lg:aspect-[16/9]'
-    } else {
-        return 'lg:max-w-2xl xl:max-w-3xl 2xl:max-w-4xl lg:aspect-square'
-    }
+    // All videos are now optimized to 9:16 portrait (720×1280)
+    return 'lg:max-w-sm xl:max-w-md 2xl:max-w-lg lg:aspect-[9/16]'
 })
 
 const videoAspectStyle = computed(() => {
-    if (!videoWidth.value || !videoHeight.value) return {}
-
-    const aspectRatio = videoWidth.value / videoHeight.value
-
     return {
-        '--video-aspect-ratio': aspectRatio
+        '--video-aspect-ratio': 9 / 16
     }
 })
 
@@ -744,11 +751,21 @@ const setupClappr = (p2pUrl) => {
                 player.unmute()
             }
         }
+
+        // ── DADA AI: Start reward tracking ──
+        if (authStore.authenticated && props.videoId) {
+            rewardStartWatching(props.videoId, props.caption?.slice(0, 200))
+        }
     })
 
     player.on('pause', () => {
         isPaused.value = true
         showMobilePauseButton.value = false
+
+        // ── DADA AI: Stop reward tracking ──
+        if (authStore.authenticated && rewardIsTracking.value) {
+            rewardStopWatching()
+        }
     })
 
     player.on('error', (e) => {
@@ -756,21 +773,13 @@ const setupClappr = (p2pUrl) => {
         playerReady.value = false
     })
 
-    // Get video dimensions via container
+    // Force 9:16 TikTok portrait — all videos optimized to 720×1280
     player.on('container:loadedmetadata', () => {
         const videoEl = player.el().querySelector('video')
         if (videoEl) {
             videoWidth.value = videoEl.videoWidth
             videoHeight.value = videoEl.videoHeight
-
-            const aspectRatio = videoWidth.value / videoHeight.value
-            if (aspectRatio < 0.95) {
-                videoOrientation.value = 'portrait'
-            } else if (aspectRatio > 1.05) {
-                videoOrientation.value = 'landscape'
-            } else {
-                videoOrientation.value = 'square'
-            }
+            videoOrientation.value = 'portrait'
         }
     })
 
@@ -833,6 +842,12 @@ onUnmounted(() => {
     if (touchTimeout.value) clearTimeout(touchTimeout.value)
     if (longPressTimeout.value) clearTimeout(longPressTimeout.value)
     commentStore.clearComments(props.videoId)
+
+    // ── DADA AI: Stop reward tracking on unmount ──
+    if (rewardIsTracking.value) {
+        rewardStopWatching()
+    }
+
     if (player) {
         player.destroy()
         player = null

@@ -92,25 +92,20 @@ class VideoOptimizeJob implements ShouldQueue
                 throw new \Exception('Could not determine video dimensions');
             }
 
-            if ($height > $width) {
-                $scaleFilter = 'scale=720:-2';
-                $maxBitrate = '2500k';
-                $bufSize = '5000k';
-                $video->width = 720;
-                $video->height = (int) round($height * (720 / $width) / 2) * 2;
-            } elseif ($width > $height) {
-                $scaleFilter = 'scale=-2:720';
-                $maxBitrate = '3000k';
-                $bufSize = '6000k';
-                $video->width = (int) round($width * (720 / $height) / 2) * 2;
-                $video->height = 720;
+            // Force 9:16 portrait (720x1280) for TikTok-style output
+            // Center-crop to 9:16 aspect ratio, then scale to 720x1280
+            if ($width / $height > 9 / 16) {
+                // Landscape or wider than 9:16 — crop width to match 9:16 ratio
+                $cropFilter = 'crop=ih*9/16:ih';
             } else {
-                $scaleFilter = 'scale=720:720';
-                $maxBitrate = '2500k';
-                $bufSize = '5000k';
-                $video->width = 720;
-                $video->height = 720;
+                // Portrait/square or taller than 9:16 — crop height to match 9:16 ratio
+                $cropFilter = 'crop=iw:iw*16/9';
             }
+            $scaleFilter = $cropFilter.',scale=720:1280';
+            $maxBitrate = '4000k';
+            $bufSize = '8000k';
+            $video->width = 720;
+            $video->height = 1280;
 
             $format = new X264('aac');
             $format
@@ -127,6 +122,7 @@ class VideoOptimizeJob implements ShouldQueue
                     '-movflags', '+faststart',
                     '-pix_fmt', 'yuv420p',
                     '-tune', 'film',
+                    '-tag:v', 'hvc1',
                     '-ac', '2',
                     '-t', (string) $maxDuration,
                 ]);
