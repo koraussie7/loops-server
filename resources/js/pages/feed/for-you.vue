@@ -20,7 +20,7 @@
             :item-component="VideoPlayerTracking"
             :get-item-props="getVideoProps"
             :get-item-key="getVideoKey"
-            :auto-play="hasInteracted"
+            :auto-play="true"
             :scroll-threshold="1.5"
             :snap-sensitivity="50"
             @item-visible="onVideoVisible"
@@ -97,7 +97,7 @@ const getVideoProps = (post, index) => ({
     index: index,
     isSensitive: post?.is_sensitive,
     altText: post?.media.alt_text,
-    autoPlay: hasInteracted.value,
+    autoPlay: true,
     muted: globalMuted.value
 })
 

@@ -86,7 +86,7 @@
                         />
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
                         <div class="text-center">
                             <div class="flex items-center justify-center mb-3">
                                 <svg
@@ -1760,3 +1760,12 @@ const formatFileSize = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 </script>
+
+
+<style scoped>
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.animate-shimmer { animation: shimmer 2s infinite linear; }
+</style>

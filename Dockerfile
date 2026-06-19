@@ -49,7 +49,7 @@ RUN chown -R www-data:www-data /var/www/html \
     && chmod -R ug+rwx /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Install composer dependencies
-RUN composer install --no-ansi --no-interaction --optimize-autoloader
+RUN composer install --no-ansi --no-interaction --optimize-autoloader --no-scripts
 
 # Copy Node.js binaries/libraries from node stage
 COPY --from=node /usr/local/bin /usr/local/bin

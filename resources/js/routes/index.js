@@ -26,6 +26,12 @@ const router = createRouter({
             meta: { requiresAuth: true }
         },
         {
+            path: '/bestoday',
+            name: 'bestoday',
+            component: () => import('~/pages/BestodayPage.vue'),
+            meta: { requiresAuth: false }
+        },
+        {
             path: '/explore',
             name: 'explorePage',
             component: () => import('~/pages/explore.vue'),
@@ -217,6 +223,15 @@ const router = createRouter({
                 isDynamicPage: true,
                 title: 'Community Guidelines',
                 requiresAuth: false
+            }
+        },
+        {
+            path: '/pages/flirting',
+            name: 'FlirtingPage',
+            component: () => import('~/pages/FlirtingPage.vue'),
+            meta: {
+                title: 'Flirting',
+                requiresAuth: true
             }
         },
         {
@@ -472,6 +487,19 @@ const router = createRouter({
                     path: 'hashtags',
                     name: 'Hashtags',
                     component: () => import('~/pages/admin/Hashtags.vue'),
+                    meta: { requiresAdmin: true }
+                },
+                {
+                    path: 'playlists/:id',
+                    name: 'PlaylistsShow',
+                    component: () => import('~/pages/admin/PlaylistShow.vue'),
+                    params: true,
+                    meta: { requiresAdmin: true }
+                },
+                {
+                    path: 'playlists',
+                    name: 'Playlists',
+                    component: () => import('~/pages/admin/Playlists.vue'),
                     meta: { requiresAdmin: true }
                 },
                 {

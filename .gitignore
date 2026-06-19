@@ -35,3 +35,4 @@ api.json
 tiktok/
 *.mp4
 *.bak
+/storage/app

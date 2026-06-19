@@ -714,7 +714,7 @@ onMounted(async () => {
         player = videojs(videoRef.value, {
             controls: false,
             autoplay: false,
-            preload: 'none',
+            preload: 'auto',
             loop: true,
             fluid: true,
             muted: true,

@@ -143,7 +143,7 @@ const handleItemChange = async (newIndex, oldIndex) => {
     isChangingItem.value = true
     const now = Date.now()
 
-    if (now - lastActionTime.value < 300) {
+    if (now - lastActionTime.value < 100) {
         isChangingItem.value = false
         return
     }
@@ -174,7 +174,7 @@ const handleItemChange = async (newIndex, oldIndex) => {
             emit('item-hidden', oldIndex)
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        // 100ms delay removed
 
         if (newIndex >= 0 && newIndex < totalItems.value) {
             const newItem = itemRefs.value[newIndex]

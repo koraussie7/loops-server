@@ -8,7 +8,7 @@
 
             <!-- DADA Coin Balance -->
             <div v-if="dadaBalance !== null && profileStore.isSelf" 
-                 class="flex items-center justify-between px-1 py-3 mt-1 mx-0 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-700/50">
+                 class="flex items-center justify-between px-4 py-4 mt-2 mx-0 rounded-2xl bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 dark:from-amber-900/30 dark:via-yellow-900/30 dark:to-orange-900/30 border border-amber-200/80 dark:border-amber-700/50 shadow-lg shadow-amber-200/30 dark:shadow-amber-900/20 hover:shadow-xl hover:shadow-amber-300/40 dark:hover:shadow-amber-800/30 transition-all duration-300 hover:-translate-y-0.5">
                 <div class="flex items-center gap-2">
                     <span class="text-2xl">🪙</span>
                     <div>
@@ -33,15 +33,20 @@
 
             <ProfilePlaylists v-if="playlists && playlists.length" :playlists="playlists" />
 
-            <div v-if="show" class="mt-4 grid lg:grid-cols-4 md:grid-cols-3 grid-cols-2 gap-3">
+            <div v-if="show" class="mt-6 grid lg:grid-cols-4 md:grid-cols-3 grid-cols-2 gap-4">
                 <div v-for="post in displayPosts" :key="post.id">
                     <ProfileVideoCard :post="post" />
                 </div>
                 <div class="w-full h-20"></div>
             </div>
 
-            <div v-if="profileStore.isLoadingMorePosts" class="flex justify-center py-8">
-                <Spinner />
+            <div v-if="profileStore.isLoadingMorePosts" class="flex justify-center py-12">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F02C56] to-purple-600 flex items-center justify-center animate-pulse">
+                    <svg class="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
             </div>
 
             <div v-else-if="profileStore.relationship.blocking" class="flex justify-center py-8">
