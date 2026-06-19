@@ -42,7 +42,8 @@ class VideoResource extends JsonResource
             'account' => AccountService::compact($this->profile_id),
             'caption' => $this->caption,
             'url' => $this->shareUrl(),
-            'is_owner' => $pid && $this->profile_id == $pid,
+            'shortcode' => $this->hashid(),
+            'is_owner' => $pid && (int) $this->profile_id === (int) $pid,
             'is_sensitive' => (bool) $this->is_sensitive,
             'media' => [
                 'thumbnail' => $thumb,
@@ -50,6 +51,8 @@ class VideoResource extends JsonResource
                 'hls_url' => null,
                 'alt_text' => $this->alt_text,
                 'duration' => $this->duration,
+                'width' => $this->width,
+                'height' => $this->height,
             ],
             'pinned' => $this->is_pinned,
             'likes' => $this->likes,
@@ -67,6 +70,7 @@ class VideoResource extends JsonResource
                 'can_download' => (bool) $this->can_download,
                 'can_duet' => (bool) $this->can_duet,
                 'can_stitch' => (bool) $this->can_stitch,
+                'can_embed' => (bool) $this->can_embed && ! $this->is_sensitive,
             ],
             'audio' => [
                 'has_audio' => (bool) $this->has_audio,
@@ -81,10 +85,6 @@ class VideoResource extends JsonResource
             ],
             'created_at' => $this->created_at->format('c'),
         ];
-
-        if ($this->has_hls) {
-            $res['media']['hls'] = $mediaUrl.'.m3u8';
-        }
 
         return $res;
     }

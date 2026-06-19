@@ -30,7 +30,15 @@
                             <source :src="videoUrl" type="video/mp4" />
                         </video>
 
+
                         <DadaCoinAnimation ref="dadaCoinRef" />
+                        <!-- DADA AI Blockchain Rewards Badge -->
+                        <DadaRewardBadge
+                            :earned-tokens="rewardEarnedTokens"
+                            :is-tracking="rewardIsTracking"
+                            :reward-per-second="10"
+                            :visible="authStore.authenticated"
+                        />
 
                         <div
                             v-if="isSensitive && !isSensitiveRevealed"
@@ -429,6 +437,10 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useAlertModal } from '@/composables/useAlertModal.js'
 import { useI18n } from 'vue-i18n'
 
+// ── DADA AI Blockchain Video Rewards ──
+import { useVideoRewards } from '~/composables/useVideoRewards'
+import DadaRewardBadge from '@/components/Feed/DadaRewardBadge.vue'
+
 const props = defineProps({
     duration: { type: Number, default: 0 },
     videoId: { type: String, required: true },
@@ -475,6 +487,16 @@ const queryClient = useQueryClient()
 const { alertModal, confirmModal } = useAlertModal()
 const { t } = useI18n()
 const { recordImpression } = useVideoTracking()
+
+// ── DADA AI Blockchain Rewards ──
+const {
+    earnedTokens: rewardEarnedTokens,
+    isTracking: rewardIsTracking,
+    accumulatedSeconds: rewardAccumulatedSeconds,
+    startWatching: rewardStartWatching,
+    stopWatching: rewardStopWatching,
+    fetchRewardStatus: rewardFetchStatus
+} = useVideoRewards()
 const watchStartTime = ref(0)
 const accumulatedWatchTime = ref(0)
 const hasReportedCompletion = ref(false)
@@ -767,6 +789,11 @@ onMounted(async () => {
             if (hasGlobalInteraction.value) {
                 player.muted(isMuted.value)
             }
+
+            // ── DADA AI: Start reward tracking ──
+            if (authStore.authenticated && props.videoId) {
+                rewardStartWatching(props.videoId, props.caption?.slice(0, 200))
+            }
         })
         player.on('pause', function () {
             isPaused.value = true
@@ -775,6 +802,11 @@ onMounted(async () => {
                 const sessionDuration = (Date.now() - watchStartTime.value) / 1000
                 accumulatedWatchTime.value += sessionDuration
                 watchStartTime.value = 0
+            }
+
+            // ── DADA AI: Stop reward tracking ──
+            if (authStore.authenticated && rewardIsTracking.value) {
+                rewardStopWatching()
             }
         })
         player.on('error', function (e) {
@@ -828,6 +860,11 @@ watch(
 
 onBeforeUnmount(() => {
     flushTracking('Unmount')
+
+    // ── DADA AI: Stop reward tracking on unmount ──
+    if (rewardIsTracking.value) {
+        rewardStopWatching()
+    }
 
     window.removeEventListener('resize', handleResize)
     if (touchTimeout.value) {

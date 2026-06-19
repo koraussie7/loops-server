@@ -9,6 +9,7 @@ use App\Models\Video;
 use App\Services\ConfigService;
 use App\Services\DadaRewardService;
 use App\Services\ForYouFeedService;
+use App\Services\ImpressionBloomFilterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -55,8 +56,16 @@ class ForYouFeedController extends Controller
         $user = $request->user();
         $profile = $user->profile;
 
+        $video = Video::published()->find($request->input('video_id'));
+
+        if (! $video) {
+            return response()->json(['success' => true]);
+        }
+
         if ($validated['completed']) {
-            Video::published()->whereKey($validated['video_id'])->increment('views');
+            if (! app(ImpressionBloomFilterService::class)->mightContain($profile->id, $video->id)) {
+                Video::published()->whereKey($validated['video_id'])->increment('views');
+            }
         }
 
         $this->feedService->recordImpression(

@@ -17,13 +17,13 @@ const router = createRouter({
             path: '/feed/for-you',
             name: 'feedForYouPage',
             component: () => import('~/pages/feed/for-you.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: false }
         },
         {
             path: '/feed/following',
             name: 'feedFollowingPage',
             component: () => import('~/pages/feed/following.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: false }
         },
         {
             path: '/bestoday',
@@ -65,7 +65,7 @@ const router = createRouter({
             path: '/search',
             name: 'search',
             component: () => import('~/pages/search.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: false }
         },
         {
             path: '/starter-kits',
@@ -155,7 +155,7 @@ const router = createRouter({
             path: '/sounds/:id',
             name: 'soundsPage',
             component: () => import('~/pages/sounds/index.vue'),
-            meta: { requiresAuth: true, params: true }
+            meta: { requiresAuth: false, params: true }
         },
         {
             path: '/@:id',
@@ -258,6 +258,12 @@ const router = createRouter({
         //   component: () => import('~/pages/platform/developer/api/v1/video/create.vue'),
         //   meta: { requiresAuth: false }
         // },
+        {
+            path: '/dmca',
+            name: 'dmca',
+            component: () => import('~/pages/platform/legal/dmca.vue'),
+            meta: { requiresAuth: false }
+        },
         {
             path: '/contact',
             name: 'contact',

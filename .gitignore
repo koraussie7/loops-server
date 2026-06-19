@@ -36,3 +36,5 @@ tiktok/
 *.mp4
 *.bak
 /storage/app
+public/loops-embed.js
+public/embed.js

@@ -25,10 +25,23 @@ use App\Http\Controllers\Api\StudioAnalyticsController;
 use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\UserPreferencesController;
 use App\Http\Controllers\Api\VideoController;
+use App\Http\Controllers\Api\VideoPlaylistController;
 use App\Http\Controllers\Api\VideoSoundController;
 use App\Http\Controllers\Api\WebPublicController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\CommerceVideoController;
+use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\CheckoutController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\VendorController;
+use App\Http\Controllers\Api\CommerceAnalyticsController;
+use App\Http\Controllers\Api\AffiliateController;
+use App\Http\Controllers\Api\LiveCommerceController;
+use App\Http\Controllers\Api\AutoStoreController;
+use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\AppleAuthController;
 use App\Http\Controllers\AtomFeedController;
+use App\Http\Controllers\Auth\AccountSwitcherController;
 use App\Http\Controllers\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CuratedOnboardingController;
@@ -113,6 +126,25 @@ Route::middleware(['auth:web,api'])
         Route::get('{type}/search', [KlipyController::class, 'search'])->middleware('throttle:klipy')->name('klipy.search');
     });
 
+Route::middleware(['auth:web,api'])
+    ->prefix('api/v1/auth/accounts')
+    ->name('auth.accounts.')
+    ->group(function () {
+        Route::get('/', [AccountSwitcherController::class, 'index'])
+            ->name('index');
+
+        Route::post('/switch', [AccountSwitcherController::class, 'switch'])
+            ->middleware('throttle:20,1')
+            ->name('switch');
+
+        Route::post('/remove', [AccountSwitcherController::class, 'remove'])
+            ->middleware('throttle:20,1')
+            ->name('remove');
+
+        Route::post('/logout-all', [AccountSwitcherController::class, 'logoutAll'])
+            ->name('logout-all');
+    });
+
 Route::prefix('api')->group(function () {
     Route::post('/v1/apps', [AuthController::class, 'registerApp']);
     Route::get('/v1/config', [WebPublicController::class, 'appConfiguration'])->middleware([OptionalAuth::class, 'throttle:api']);
@@ -128,19 +160,19 @@ Route::prefix('api')->group(function () {
 
     Route::post('/v1/invite/verify', [AdminInviteController::class, 'verifyInvite']);
     Route::post('/v1/invite/check-username', [AdminInviteController::class, 'checkUsername']);
-    Route::post('/v1/invite/register', [AdminInviteController::class, 'register']);
+    Route::post('/v1/invite/register', [AdminInviteController::class, 'register'])->middleware('throttle:3,15');
     Route::post('/v1/invite/verify-age', [AdminInviteController::class, 'verifyAge']);
 
     // Auth
-    Route::post('/v1/auth/2fa/verify', [AuthController::class, 'verifyTwoFactor']);
+    Route::post('/v1/auth/2fa/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:5,1');
     Route::post('/v1/auth/register/email', [UserRegisterVerifyController::class, 'sendEmailVerification']);
     Route::post('/v1/auth/register/email/resend', [UserRegisterVerifyController::class, 'resendEmailVerification']);
     Route::post('/v1/auth/register/email/verify', [UserRegisterVerifyController::class, 'verifyEmailVerification']);
     Route::post('/v1/auth/register/username', [UserRegisterVerifyController::class, 'claimUsername']);
     Route::post('/v1/auth/register/verify-age', [UserRegisterVerifyController::class, 'verifyAge']);
-    Route::post('/v1/auth/verify/email', [EmailVerificationController::class, 'initiate']);
-    Route::post('/v1/auth/verify/email/confirm', [EmailVerificationController::class, 'confirm']);
-    Route::post('/v1/auth/verify/email/resend', [EmailVerificationController::class, 'resend']);
+    Route::post('/v1/auth/verify/email', [EmailVerificationController::class, 'initiate'])->middleware('throttle:10,1');
+    Route::post('/v1/auth/verify/email/confirm', [EmailVerificationController::class, 'confirm'])->middleware('throttle:10,1');
+    Route::post('/v1/auth/verify/email/resend', [EmailVerificationController::class, 'resend'])->middleware('throttle:10,1');
     Route::post('/v1/auth/apple', [AppleAuthController::class, 'handle']);
 
     // Studio
@@ -148,6 +180,8 @@ Route::prefix('api')->group(function () {
     Route::get('/v1/studio/playlist-posts', [StudioController::class, 'getAvailableVideosForPlaylists'])->middleware('auth:web,api');
     Route::post('/v1/studio/upload', [VideoController::class, 'store'])->middleware('auth:web,api');
     Route::post('/v1/studio/duet/upload', [DuetController::class, 'store'])->middleware('auth:web,api');
+    Route::get('/v1/studio/playlists/limits', [PlaylistController::class, 'getLimits'])->middleware('auth:web,api');
+    Route::post('/v1/studio/playlists/profile-reorder', [PlaylistController::class, 'reorderPlaylistOrder'])->middleware('auth:web,api');
     Route::apiResource('/v1/studio/playlists', PlaylistController::class)->middleware('auth:web,api');
     Route::get('/v1/studio/playlists/{playlist}/videos', [PlaylistController::class, 'videos'])->middleware('auth:web,api');
     Route::post('/v1/studio/playlists/{playlist}/videos', [PlaylistController::class, 'addVideo'])->middleware('auth:web,api');
@@ -162,7 +196,7 @@ Route::prefix('api')->group(function () {
     Route::get('/v1/studio/analytics/summary', [StudioAnalyticsController::class, 'summary'])->middleware('auth:web,api');
 
     // Search
-    Route::get('/v1/search', [SearchController::class, 'search'])->middleware(['auth:web,api', 'throttle:searchV1']);
+    Route::get('/v1/search', [SearchController::class, 'search'])->middleware(['throttle:searchV1']);
     Route::post('/v1/search/remote', [SearchController::class, 'remoteLookup'])->middleware(['auth:web,api', 'throttle:searchV1Remote']);
     Route::post('/v1/search/users', [SearchController::class, 'getUsers'])->middleware(['auth:web,api', 'throttle:autocomplete']);
     Route::post('/v1/intents/follow/account', [IntentsController::class, 'getFollowAccount'])->middleware(['auth:web,api', 'throttle:followIntents']);
@@ -170,7 +204,7 @@ Route::prefix('api')->group(function () {
 
     // Feeds
     Route::get('/v0/user/self', [AccountController::class, 'selfAccountInfo'])->middleware('auth:web,api');
-    Route::get('/v0/feed/for-you', [FeedController::class, 'getForYouFeed'])->middleware('auth:web,api');
+    Route::get('/v0/feed/for-you', [FeedController::class, 'getForYouFeed'])->middleware('throttle:api');
     Route::get('/web/feed', [WebPublicController::class, 'getFeed'])->middleware('throttle:api');
 
     // Web Accounts
@@ -181,7 +215,7 @@ Route::prefix('api')->group(function () {
     Route::get('/v1/account/info/self', [AccountController::class, 'selfAccountInfo'])->middleware('auth:web,api');
     Route::get('/v1/account/info/{id}', [AccountController::class, 'getAccountInfo'])->middleware(['auth:web,api', 'throttle:api']);
     Route::get('/v1/account/state/{id}', [AccountController::class, 'getRelationshipState'])->middleware(['auth:web,api', 'throttle:api']);
-    Route::get('/v1/account/username/{id}', [WebPublicController::class, 'getAccountInfoByUsername'])->middleware('throttle:api');
+    Route::get('/v1/account/username/{id}', [WebPublicController::class, 'getAccountInfoByUsername'])->middleware('throttle:profile-username');
     Route::post('/v1/account/block/{id}', [AccountController::class, 'accountBlock'])->middleware('auth:web,api');
     Route::post('/v1/account/unblock/{id}', [AccountController::class, 'accountUnblock'])->middleware('auth:web,api');
     Route::get('/v1/account/followers/{id}', [AccountController::class, 'accountFollowers'])->middleware('auth:web,api');
@@ -191,7 +225,12 @@ Route::prefix('api')->group(function () {
     Route::post('/v1/account/follow/{id}', [AccountController::class, 'follow'])->middleware('auth:web,api');
     Route::post('/v1/account/unfollow/{id}', [AccountController::class, 'unfollow'])->middleware('auth:web,api');
     Route::post('/v1/account/undo-follow-request/{id}', [AccountController::class, 'undoFollowRequest'])->middleware('auth:web,api');
+    Route::get('/v1/account/playlists/{id}', [WebPublicController::class, 'accountPlaylists'])->middleware([OptionalAuth::class]);
     Route::get('/v1/account/videos/likes', [AccountController::class, 'accountVideoLikes'])->middleware('auth:web,api');
+
+    // Playlists
+    Route::get('/v1/playlists/{id}/videos', [VideoPlaylistController::class, 'videos'])->middleware([OptionalAuth::class]);
+    Route::get('/v1/playlists/{id}', [VideoPlaylistController::class, 'show'])->middleware([OptionalAuth::class]);
 
     // Bookmarks
     Route::get('/v1/account/favourites', [VideoBookmarkController::class, 'bookmarks'])->middleware('auth:web,api');
@@ -235,6 +274,7 @@ Route::prefix('api')->group(function () {
     Route::get('/v1/account/settings/push-notifications/status', [AccountController::class, 'getPushNotificationStatus'])->middleware(['auth:web,api']);
     Route::post('/v1/account/settings/push-notifications/enable', [AccountController::class, 'enablePushNotifications'])->middleware(['auth:web,api']);
     Route::post('/v1/account/settings/push-notifications/disable', [AccountController::class, 'disablePushNotifications'])->middleware(['auth:web,api']);
+    Route::post('/v1/account/settings/content/embeds', [AccountController::class, 'updateEmbedSettings'])->middleware(['auth:web,api']);
 
     // App
     Route::post('/v1/app/logout', [AppController::class, 'handleLogout'])->middleware(['auth:web,api']);
@@ -288,7 +328,7 @@ Route::prefix('api')->group(function () {
 
     // Account Feeds
     Route::get('/v1/feed/account/self', [FeedController::class, 'selfAccountFeed'])->middleware('auth:web,api');
-    Route::get('/v1/feed/account/{id}/cursor', [FeedController::class, 'getAccountFeedWithCursor'])->middleware('throttle:api');
+    Route::get('/v1/feed/account/{id}/cursor', [FeedController::class, 'getAccountFeedWithCursor'])->middleware(['auth:web,api', 'throttle:api']);
     Route::get('/v1/feed/account/{id}', [WebPublicController::class, 'getAccountFeed'])->middleware('throttle:api');
 
     // Explore Feed
@@ -299,8 +339,8 @@ Route::prefix('api')->group(function () {
 
     // Global Feeds
     // Note: the for-you feed will be deprecated in a future release, in favour of the local feed
-    Route::get('/v1/feed/for-you', [FeedController::class, 'getForYouFeed'])->middleware('auth:web,api');
-    Route::get('/v1/feed/local', [FeedController::class, 'getForYouFeed'])->middleware('auth:web,api');
+    Route::get('/v1/feed/for-you', [FeedController::class, 'getForYouFeed'])->middleware('throttle:api');
+    Route::get('/v1/feed/local', [FeedController::class, 'getForYouFeed'])->middleware('throttle:api');
     Route::get('/v1/feed/following', [FeedController::class, 'getFollowingFeed'])->middleware('auth:web,api');
 
     Route::get('/v0/feed/recommended', [ForYouFeedController::class, 'index'])->middleware('auth:web,api');
@@ -362,15 +402,82 @@ Route::prefix('api')->group(function () {
 
     Route::get('/v2026.3/pmt/{tokenId}', [PrivateMediaTokenController::class, 'show'])->name('media.private.show')->middleware(['auth:web,api']);
 
+    // ── Commerce: Products ──
+    Route::get('/v1/commerce/products', [ProductController::class, 'index']);
+    Route::get('/v1/commerce/products/search', [ProductController::class, 'search']);
+    Route::post('/v1/commerce/products', [ProductController::class, 'store'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/products/{id}', [ProductController::class, 'show']);
+    Route::put('/v1/commerce/products/{id}', [ProductController::class, 'update'])->middleware('auth:web,api');
+    Route::delete('/v1/commerce/products/{id}', [ProductController::class, 'destroy'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/products/{id}/link-video', [ProductController::class, 'linkVideo'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/products/by-video/{videoId}', [CommerceVideoController::class, 'getVideoProducts']);
+
+    // ── Commerce: Cart ──
+    Route::get('/v1/commerce/cart', [CartController::class, 'index'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/cart/count', [CartController::class, 'count'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/cart/add', [CartController::class, 'add'])->middleware('auth:web,api');
+    Route::put('/v1/commerce/cart/{cartId}', [CartController::class, 'update'])->middleware('auth:web,api');
+    Route::delete('/v1/commerce/cart/{cartId}', [CartController::class, 'remove'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/cart/clear', [CartController::class, 'clear'])->middleware('auth:web,api');
+
+    // ── Commerce: Checkout & Orders ──
+    Route::post('/v1/commerce/checkout', [CheckoutController::class, 'checkout'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/orders', [CheckoutController::class, 'orders'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/orders/{id}', [CheckoutController::class, 'show'])->middleware('auth:web,api');
+
+    // ── Commerce: Stripe Payment ──
+    Route::post('/v1/commerce/payment/create-checkout-session', [PaymentController::class, 'createCheckoutSession'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/payment/webhook', [PaymentController::class, 'handleWebhook'])->name('stripe.webhook');
+    Route::get('/v1/commerce/payment/success/{orderId}', [PaymentController::class, 'success'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/payment/cancel/{orderId}', [PaymentController::class, 'cancel'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/payment/refund/{orderId}', [PaymentController::class, 'refund'])->middleware('auth:web,api');
+
+    // ── Commerce: Vendors ──
+    Route::post('/v1/commerce/vendor/register', [VendorController::class, 'register'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/vendor', [VendorController::class, 'show'])->middleware('auth:web,api');
+    Route::put('/v1/commerce/vendor', [VendorController::class, 'update'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/vendor/dashboard', [VendorController::class, 'dashboard'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/vendor/products', [VendorController::class, 'products'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/vendor/orders', [VendorController::class, 'orders'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/vendor/admin', [VendorController::class, 'adminIndex'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/vendor/admin/{id}/verify', [VendorController::class, 'adminVerify'])->middleware('auth:web,api');
+
+    // ── Commerce: Analytics ──
+    Route::prefix('/v1/commerce/analytics')->middleware('auth:web,api')->group(function () {
+        Route::get('/overview', [CommerceAnalyticsController::class, 'overview']);
+        Route::get('/revenue', [CommerceAnalyticsController::class, 'revenue']);
+        Route::get('/products', [CommerceAnalyticsController::class, 'products']);
+        Route::get('/vendor-performance', [CommerceAnalyticsController::class, 'vendorPerformance']);
+        Route::get('/ai-accuracy', [CommerceAnalyticsController::class, 'aiAccuracy']);
+    });
+
+    // ── Commerce: Affiliate ──
+    Route::prefix('/v1/commerce/affiliate')->group(function () {
+        Route::post('/create', [AffiliateController::class, 'createLink'])->middleware('auth:web,api');
+        Route::get('/my-links', [AffiliateController::class, 'myLinks'])->middleware('auth:web,api');
+        Route::get('/dashboard', [AffiliateController::class, 'dashboard'])->middleware('auth:web,api');
+        Route::get('/admin', [AffiliateController::class, 'adminIndex'])->middleware('auth:web,api');
+        Route::get('/track/{code}', [AffiliateController::class, 'trackClick']);
+    });
+
+    // ── DADA AI Blockchain Video Rewards ──
+    Route::prefix('/v1/rewards')->group(function () {
+        Route::get('/health', [RewardController::class, 'health']);
+        Route::post('/watch/start', [RewardController::class, 'watchStart'])->middleware('auth:web,api');
+        Route::post('/watch/update', [RewardController::class, 'watchUpdate'])->middleware('auth:web,api');
+        Route::post('/watch/end', [RewardController::class, 'watchEnd'])->middleware('auth:web,api');
+        Route::get('/history', [RewardController::class, 'history'])->middleware('auth:web,api');
+        Route::get('/status', [RewardController::class, 'status'])->middleware('auth:web,api');
+    });
+
     // Curated Onboarding
     Route::get('/v1/onboarding/config', [CuratedOnboardingController::class, 'config']);
     Route::prefix('/v1/onboarding')->group(function () {
         Route::post('apply', [CuratedOnboardingController::class, 'apply'])->middleware(['throttle:curated-apply']);
-        Route::post('verify-email', [CuratedOnboardingController::class, 'verifyEmail']);
-        Route::post('verify-invite', [CuratedOnboardingController::class, 'verifyInvite']);
-        Route::post('username-check', [CuratedOnboardingController::class, 'usernameCheck']);
-        Route::post('complete', [CuratedOnboardingController::class, 'completeOnboarding']);
-        Route::get('status', [CuratedOnboardingController::class, 'status']);
+        Route::post('verify-email', [CuratedOnboardingController::class, 'verifyEmail'])->middleware(['throttle:3,1']);
+        Route::post('verify-invite', [CuratedOnboardingController::class, 'verifyInvite'])->middleware(['throttle:3,1']);
+        Route::post('username-check', [CuratedOnboardingController::class, 'usernameCheck'])->middleware(['throttle:20,1']);
+        Route::post('complete', [CuratedOnboardingController::class, 'completeOnboarding'])->middleware(['throttle:3,1']);
     });
 
     // Admin
@@ -421,11 +528,13 @@ Route::prefix('api')->group(function () {
         Route::get('/reports-count', [AdminController::class, 'reportCount'])->middleware('auth:web,api');
         Route::get('/videos', [AdminController::class, 'videos'])->middleware('auth:web,api');
         Route::get('/comments', [AdminController::class, 'comments'])->middleware('auth:web,api');
+        Route::get('/comment/{id}/replies', [AdminController::class, 'getCommentReplies'])->middleware('auth:web,api');
         Route::get('/comment/{id}', [AdminController::class, 'getComment'])->middleware('auth:web,api');
         Route::get('/replies', [AdminController::class, 'replies'])->middleware('auth:web,api');
         Route::post('/replies/{id}/delete', [AdminController::class, 'videoReplyDelete'])->middleware('auth:web,api');
         Route::post('/replies/{id}/hide', [AdminController::class, 'videoReplyHide'])->middleware('auth:web,api');
         Route::post('/replies/{id}/unhide', [AdminController::class, 'videoReplyUnhide'])->middleware('auth:web,api');
+        Route::get('/videos/{id}/admin-auditlog', [AdminController::class, 'videoAuditLog'])->middleware('auth:web,api');
         Route::get('/videos/{id}/comments', [AdminController::class, 'videoCommentsShow'])->middleware('auth:web,api');
         Route::post('/comments/{id}/delete', [AdminController::class, 'videoCommentsDelete'])->middleware('auth:web,api');
         Route::post('/comments/{id}/hide', [AdminController::class, 'videoCommentsHide'])->middleware('auth:web,api');
@@ -433,6 +542,10 @@ Route::prefix('api')->group(function () {
         Route::post('/videos/{id}/moderate', [AdminController::class, 'videoModerate'])->middleware('auth:web,api');
         Route::get('/video/{id}', [AdminController::class, 'videoShow'])->middleware('auth:web,api');
         Route::get('/profiles', [AdminController::class, 'profiles'])->middleware('auth:web,api');
+        Route::post('/playlists/{id}/delete', [AdminController::class, 'playlistDelete'])->middleware('auth:web,api');
+        Route::get('/playlists/{id}/videos', [AdminController::class, 'playlistShowVideos'])->middleware('auth:web,api');
+        Route::get('/playlists/{id}', [AdminController::class, 'playlistShow'])->middleware('auth:web,api');
+        Route::get('/playlists', [AdminController::class, 'playlists'])->middleware('auth:web,api');
         Route::get('/hashtags', [AdminController::class, 'hashtags'])->middleware('auth:web,api');
         Route::get('/hashtag/{id}', [AdminController::class, 'getHashtag'])->middleware('auth:web,api');
         Route::post('/hashtags/{id}/update', [AdminController::class, 'hashtagsUpdate'])->middleware('auth:web,api');
@@ -460,6 +573,8 @@ Route::prefix('api')->group(function () {
         Route::post('/profiles/{id}/2fa-disable', [AdminController::class, 'profileDisableTwoFactorAuth'])->middleware('auth:web,api');
         Route::post('/profiles/{id}/send-email', [AdminController::class, 'profileAdminSendEmail'])->middleware(['auth:web,api', 'throttle:30,1']);
         Route::post('/profiles/{id}/reset-password', [AdminController::class, 'profileAdminResetPassword'])->middleware(['auth:web,api', 'throttle:10,1']);
+        Route::post('/profiles/{id}/delete-all-comments', [AdminController::class, 'profileDeleteAllComments'])->middleware(['auth:web,api']);
+        Route::post('/profiles/{id}/revoke-all-sessions', [AdminController::class, 'profileRevokeAllSessions'])->middleware(['auth:web,api']);
         Route::get('/settings', [AdminSettingsController::class, 'index'])->middleware('auth:web,api');
         Route::put('/settings', [AdminSettingsController::class, 'update'])->middleware('auth:web,api');
         Route::post('/settings/update-logo', [AdminSettingsController::class, 'updateLogo'])->middleware('auth:web,api');
@@ -543,3 +658,20 @@ Route::prefix('/ap')->middleware([AuthorizedFetch::class])->group(function () {
     Route::get('kit/{kit}/attestation/{id}', [ObjectController::class, 'showStarterKitAccountAttestation'])->middleware(AuthorizedFetch::class);
     Route::get('users/{profileId}/quote_authorizations/{authId}', [ObjectController::class, 'getQuoteAuthorization'])->middleware(AuthorizedFetch::class);
 });
+
+    // ── Commerce: Live Commerce ──
+    Route::get('/v1/commerce/live-streams', [LiveCommerceController::class, 'listStreams']);
+    Route::get('/v1/commerce/live-streams/active', [LiveCommerceController::class, 'getActiveStreams']);
+    Route::get('/v1/commerce/live-streams/{id}', [LiveCommerceController::class, 'getStream']);
+    Route::post('/v1/commerce/live-streams', [LiveCommerceController::class, 'createStream'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/live-streams/{id}/start', [LiveCommerceController::class, 'startStream'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/live-streams/{id}/end', [LiveCommerceController::class, 'endStream'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/live-streams/{id}/products', [LiveCommerceController::class, 'addProductToStream'])->middleware('auth:web,api');
+    Route::delete('/v1/commerce/live-streams/{id}/products/{productId}', [LiveCommerceController::class, 'removeProductFromStream'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/live-streams/{id}/viewer-count', [LiveCommerceController::class, 'updateViewerCount']);
+    Route::post('/v1/commerce/live-streams/{id}/chat', [LiveCommerceController::class, 'recordChatMessage'])->middleware('auth:web,api');
+
+    // ── Commerce: Auto Store ──
+    Route::post('/v1/commerce/auto-store/generate', [AutoStoreController::class, 'generate'])->middleware('auth:web,api');
+    Route::post('/v1/commerce/auto-store/bulk-create', [AutoStoreController::class, 'bulkCreate'])->middleware('auth:web,api');
+    Route::get('/v1/commerce/auto-store/categories', [AutoStoreController::class, 'suggestCategories']);

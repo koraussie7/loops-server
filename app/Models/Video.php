@@ -7,6 +7,7 @@ use App\Concerns\HasSyncHashtagsFromCaption;
 use App\Concerns\HasSyncMentionsFromCaption;
 use App\Observers\VideoObserver;
 use App\Services\HashidService;
+use App\Services\VideoService;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,6 +65,8 @@ use Illuminate\Support\Facades\Storage;
  * @property int $can_stitch
  * @property int $is_pinned
  * @property int|null $pinned_order
+ * @property int|null $width
+ * @property int|null $height
  * @property string|null $category
  * @property string|null $ap_published_at
  * @property string|null $last_fetched_at
@@ -185,14 +188,19 @@ class Video extends Model
             'can_stitch' => 'boolean',
             'can_download' => 'boolean',
             'can_comment' => 'boolean',
+            'can_embed' => 'boolean',
             'bookmarks' => 'integer',
             'contains_ai' => 'boolean',
             'contains_ad' => 'boolean',
             'views' => 'integer',
+            'width' => 'integer',
+            'height' => 'integer',
             'federated_at' => 'datetime',
             'last_fetched_at' => 'datetime',
             'audio_allow_reuse' => 'boolean',
             'has_hidden_comments' => 'boolean',
+            'thumbnail_width' => 'integer',
+            'thumbnail_height' => 'integer',
         ];
     }
 
@@ -209,6 +217,33 @@ class Video extends Model
      * @param  Builder<Video>  $query
      * @return Builder<Video>
      */
+    protected function scopeEmbeddable(Builder $query): Builder
+    {
+        return $query->where('can_embed', true);
+    }
+
+    /**
+     * @param  Builder<Video>  $query
+     * @return Builder<Video>
+     */
+    protected function scopeLocal(Builder $query): Builder
+    {
+        return $query->where('is_local', true);
+    }
+
+    /**
+     * @param  Builder<Video>  $query
+     * @return Builder<Video>
+     */
+    protected function scopeSafeForWork(Builder $query): Builder
+    {
+        return $query->where('is_sensitive', false);
+    }
+
+    /**
+     * @param  Builder<Video>  $query
+     * @return Builder<Video>
+     */
     protected function scopePublishedAndSafe(Builder $query): Builder
     {
         return $query->where('status', 2)->where('is_sensitive', false);
@@ -218,6 +253,12 @@ class Video extends Model
     protected function canComment(Builder $query): void
     {
         $query->where('comment_state', 4);
+    }
+
+    #[Scope]
+    protected function publishedAndPublic(Builder $query): void
+    {
+        $query->where('status', 2)->where('visibility', 1);
     }
 
     public function statusLabel()
@@ -301,7 +342,9 @@ class Video extends Model
             ) as total_count
         ", [$this->id, $this->id])->total_count;
 
-        $this->update(['comments' => $actualCount]);
+        $this->updateQuietly(['comments' => $actualCount]);
+
+        VideoService::getMediaData($this->id, true);
 
         return $actualCount;
     }
@@ -348,5 +391,18 @@ class Video extends Model
     public function remoteSearchImports(): MorphMany
     {
         return $this->morphMany(RemoteSearchImport::class, 'searchable');
+    }
+
+    protected function afterSyncHashtagsFromCaption(array $normalizedTags): void
+    {
+        $containsAi = in_array('ai', $normalizedTags, true);
+        $containsAd = ! empty(array_intersect(['ad', 'sponsored'], $normalizedTags));
+
+        if ($this->contains_ai !== $containsAi || $this->contains_ad !== $containsAd) {
+            $this->updateQuietly([
+                'contains_ai' => $containsAi,
+                'contains_ad' => $containsAd,
+            ]);
+        }
     }
 }

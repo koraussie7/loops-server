@@ -75,9 +75,27 @@ class VideoThumbnailJob implements ShouldQueue
 
             $indexSec = 0;
 
+            // Get video dimensions for 9:16 crop
+            $mediaInfo = FFMpeg::fromDisk('s3')->open($video->vid);
+            $videoStream = $mediaInfo->getVideoStream();
+            $width = $videoStream->get('width');
+            $height = $videoStream->get('height');
+
+            // Center-crop to 9:16 and scale to 540x960 for thumbnails
+            if ($width && $height) {
+                if ($width / $height > 9 / 16) {
+                    $thumbFilter = 'crop=ih*9/16:ih,scale=540:960';
+                } else {
+                    $thumbFilter = 'crop=iw:iw*16/9,scale=540:960';
+                }
+            } else {
+                $thumbFilter = 'scale=540:960';
+            }
+
             $media = FFMpeg::fromDisk('s3')
                 ->open($video->vid)
                 ->getFrameFromSeconds($indexSec)
+                ->addFilter(['-vf', $thumbFilter])
                 ->export()
                 ->toDisk('s3')
                 ->withVisibility('public')

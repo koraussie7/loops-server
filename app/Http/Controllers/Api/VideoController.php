@@ -35,6 +35,7 @@ use App\Jobs\Video\VideoCustomThumbnailJob;
 use App\Jobs\Video\VideoOptimizeJob;
 use App\Jobs\Video\VideoProcessingCompleteJob;
 use App\Jobs\Video\VideoThumbnailJob;
+use App\Jobs\Video\DetectVideoProductsJob;
 use App\Models\Comment;
 use App\Models\CommentCaptionEdit;
 use App\Models\CommentLike;
@@ -130,6 +131,7 @@ class VideoController extends Controller
         $model = null;
         $s3Path = null;
         $thumbnailPath = null;
+        $canEmbed = (bool) $request->user()->can_embed;
 
         try {
             DB::beginTransaction();
@@ -141,6 +143,7 @@ class VideoController extends Controller
             $model->is_sensitive = $request->filled('is_sensitive') ? (bool) $request->boolean('is_sensitive') : false;
             $model->comment_state = $request->filled('comment_state') ? ($request->input('comment_state') == 4 ? 4 : 0) : 4;
             $model->can_download = $request->filled('can_download') ? $request->boolean('can_download') : false;
+            $model->can_embed = $canEmbed && $request->filled('can_embed') ? $request->boolean('can_embed') : false;
             $model->can_duet = $request->filled('can_duet') ? $request->boolean('can_duet') : false;
             $model->can_stitch = $request->filled('can_stitch') ? $request->boolean('can_stitch') : false;
             $model->alt_text = $request->filled('alt_text') ? app(SanitizeService::class)->cleanPlainText($request->alt_text) : null;
@@ -215,11 +218,13 @@ class VideoController extends Controller
                 VideoCustomThumbnailJob::withChain([
                     new VideoOptimizeJob($model),
                     new VideoProcessingCompleteJob($model),
+                    new DetectVideoProductsJob($model),
                 ])->dispatch($model);
             } else {
                 VideoThumbnailJob::withChain([
                     new VideoOptimizeJob($model),
                     new VideoProcessingCompleteJob($model),
+                    new DetectVideoProductsJob($model),
                 ])->dispatch($model);
             }
 
@@ -283,6 +288,8 @@ class VideoController extends Controller
         $pid = $request->user()->profile_id;
         $updatedCaption = $this->purifyText($request->caption);
         $video = Video::published()->findOrFail($id);
+        $canEmbed = (bool) $request->user()->can_embed;
+
         if ($video->caption !== $updatedCaption) {
             VideoCaptionEdit::create([
                 'video_id' => $video->id,
@@ -292,6 +299,7 @@ class VideoController extends Controller
         }
         $video->caption = $updatedCaption;
         $video->can_download = $request->has('can_download') ? $request->boolean('can_download') : false;
+        $video->can_embed = $canEmbed && $request->has('can_embed') ? $request->boolean('can_embed') : $video->can_embed;
         $video->comment_state = $request->has('can_comment') ? ($request->boolean('can_comment') ? 4 : 0) : 0;
         $video->is_pinned = $request->has('is_pinned') ? $request->boolean('is_pinned') : 0;
         $video->pinned_order = $request->has('is_pinned') ? Video::whereStatus(2)->whereProfileId($pid)->whereIsPinned(true)->count() + 1 : 0;
@@ -451,7 +459,7 @@ class VideoController extends Controller
             app(LikeService::class)->addVideoLike((string) $video->id, (string) $pid);
 
             if (app(ConfigService::class)->pushNotifications()) {
-                if ($pid != $video->profile_id) {
+                if ($pid != $video->profile_id && ! $video->uri) {
                     SendPushNotificationJob::dispatch_newVideoLike(
                         profileId: $video->profile_id,
                         videoId: $video->id,

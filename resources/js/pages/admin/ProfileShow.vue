@@ -168,9 +168,9 @@
                                             Disable Two Factor
                                         </DropdownItem>
 
-                                        <DropdownItem>
+                                        <DropdownItem @click="handleRevokeAllSessions">
                                             <KeyIcon class="h-4 w-4 mr-1.5" />
-                                            Revoke all sessions
+                                            Revoke API sessions
                                         </DropdownItem>
 
                                         <DropdownDivider class="my-1" />
@@ -186,6 +186,15 @@
                                                 ? 'Unverify email'
                                                 : 'Verify email'
                                         }}
+                                    </DropdownItem>
+
+                                    <DropdownItem
+                                        v-if="!profile.is_admin"
+                                        destructive
+                                        @click="handleDeleteAllComments"
+                                    >
+                                        <ChatBubbleBottomCenterIcon class="h-4 w-4 mr-1.5" />
+                                        Delete All Comments
                                     </DropdownItem>
 
                                     <DropdownItem destructive @click="handleDeleteAvatar">
@@ -395,7 +404,11 @@
                                 :label="perm.label"
                                 :description="perm.description"
                                 :enabled="!!profile[perm.key]"
-                                :disabled="profile.is_admin || isPermissionSaving(perm.key)"
+                                :disabled="
+                                    (perm?.localOnly && !profile.local) ||
+                                    profile.is_admin ||
+                                    isPermissionSaving(perm.key)
+                                "
                                 @toggle="togglePermission(perm.key)"
                             />
                         </div>
@@ -1028,7 +1041,10 @@ import {
     UserPlusIcon,
     UsersIcon,
     VideoCameraIcon,
-    Cog6ToothIcon
+    Cog6ToothIcon,
+    ChatBubbleBottomCenterIcon,
+    CodeBracketIcon,
+    QueueListIcon
 } from '@heroicons/vue/24/outline'
 import DropdownDivider from '@/components/DropdownDivider.vue'
 import AdminSendEmailModal from '@/components/Admin/AdminSendEmailModal.vue'
@@ -1101,6 +1117,12 @@ const permissionConfig = [
     { key: 'can_like', label: 'Likes', description: 'Can like', icon: HeartIcon },
     { key: 'can_report', label: 'Reports', description: 'Can create reports', icon: FlagIcon },
     {
+        key: 'can_playlist',
+        label: 'Playlists',
+        description: 'Can create playlists',
+        icon: QueueListIcon
+    },
+    {
         key: 'can_create_starter_kits',
         label: 'Starter Kits',
         description: 'Create Starter Kits',
@@ -1111,12 +1133,20 @@ const permissionConfig = [
         label: 'Use Starter Kits',
         description: 'Use Starter Kits',
         icon: RocketLaunchIcon
+    },
+    {
+        key: 'can_embed',
+        label: 'Embeds',
+        localOnly: true,
+        description: 'Allow video embeds',
+        icon: CodeBracketIcon
     }
 ]
 
 const auditTypeLabels = {
     'profile:update_notes': 'Admin notes updated',
     'profile:permissions': 'Permissions Updated',
+    'profile:revoke_sessions': 'Revoke mobile sessions',
     'profile:suspend': 'Suspended',
     'profile:unsuspend': 'Unsuspended',
     'profile:delete': 'Deleted',
@@ -1127,12 +1157,16 @@ const auditTypeLabels = {
     'profile:email_unverify': 'Email Unverified by admin',
     'profile:2fa_disable': 'Two factor auth disabled by admin',
     'profile:send_email': 'Email sent',
-    'profile:password_reset': 'Password reset'
+    'profile:password_reset': 'Password reset',
+    'profile:avatar_delete': 'Avatar deleted by admin',
+    'profile:delete_all_comments': 'Delete all comments/replies by this user'
 }
 
 const auditTypeStyles = {
     'profile:permissions': 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
     'profile:suspend': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    'profile:revoke_sessions': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    'profile:avatar_delete': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     'profile:unsuspend': 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300',
     'profile:delete': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     'profile:notes': 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
@@ -1143,6 +1177,7 @@ const auditTypeStyles = {
     'profile:email_verify':
         'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
     'profile:email_unverify': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    'profile:delete_all_comments': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     'profile:2fa_disable': 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     'profile:send_email': 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
     'profile:password_reset': 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
@@ -1151,9 +1186,12 @@ const auditTypeStyles = {
 const auditTypeIcons = {
     'profile:update_notes': PencilSquareIcon,
     'profile:permissions': LockClosedIcon,
+    'profile:revoke_sessions': LockClosedIcon,
     'profile:suspend': NoSymbolIcon,
     'profile:unsuspend': CheckIcon,
     'profile:delete': TrashIcon,
+    'profile:avatar_delete': TrashIcon,
+    'profile:delete_all_comments': TrashIcon,
     'profile:notes': PencilSquareIcon,
     'profile:verify': CheckBadgeIcon,
     'profile:email_verify': CheckBadgeIcon,
@@ -1290,7 +1328,7 @@ const statCards = computed(() => {
             icon: VideoCameraIcon,
             label: 'Videos',
             value: formatNumber(p.post_count || 0),
-            to: `/admin/videos?q=${p.username}`
+            to: `/admin/videos?q=username:${p.username}`
         },
         { icon: UsersIcon, label: 'Followers', value: formatNumber(p.follower_count || 0) },
         { icon: UserPlusIcon, label: 'Following', value: formatNumber(p.following_count || 0) },
@@ -1958,6 +1996,22 @@ const handleDisable2fa = async () => {
     }
 }
 
+const handleDeleteAllComments = async () => {
+    const result = await confirmModal(
+        'Confirm Delete All Comments',
+        `Are you sure you want to delete all comments and replies authored by <strong>${profile.value.username}</strong>'s account?`
+    )
+    if (!result) return
+
+    try {
+        await profilesApi.deleteAllProfileComments(profile.value.id)
+        await fetchProfile(profile.value.id)
+        await fetchAuditLog(profile.value.id)
+    } catch (error) {
+        console.error('Error deleting all profile comments:', error)
+    }
+}
+
 const handleDeleteAvatar = async () => {
     const result = await confirmModal(
         'Confirm Avatar Delete',
@@ -1971,6 +2025,22 @@ const handleDeleteAvatar = async () => {
         await fetchAuditLog(profile.value.id)
     } catch (error) {
         console.error('Error unsuspending profile:', error)
+    }
+}
+
+const handleRevokeAllSessions = async () => {
+    const result = await confirmModal(
+        'Confirm Revoke All Sessions',
+        `Are you sure you want to revoke all of <strong>${profile.value.username}</strong>'s sessions?`
+    )
+    if (!result) return
+
+    try {
+        await profilesApi.updateProfileRevokeAllSessions(profile.value.id)
+        await fetchProfile(profile.value.id)
+        await fetchAuditLog(profile.value.id)
+    } catch (error) {
+        console.error('Error revoking profile sessions:', error)
     }
 }
 

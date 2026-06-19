@@ -208,6 +208,37 @@ export const hashtagsApi = {
     }
 }
 
+// Playlists
+export const playlistsApi = {
+    async getPlaylists({
+        cursor = null,
+        direction = 'next',
+        search = '',
+        limit = 15,
+        sort = null
+    } = {}) {
+        return await apiClient.get('/api/v1/admin/playlists', {
+            cursor: cursor,
+            limit: limit,
+            q: search,
+            sort: sort
+        })
+    },
+
+    async getPlaylist(id) {
+        return await apiClient.get(`/api/v1/admin/playlists/${id}`)
+    },
+
+    async getPlaylistVideos(id, cursor = null) {
+        const params = cursor ? { cursor: cursor } : null
+        return await apiClient.get(`/api/v1/admin/playlists/${id}/videos`, params)
+    },
+
+    async deletePlaylist(id) {
+        return await apiClient.post(`/api/v1/admin/playlists/${id}/delete`)
+    }
+}
+
 // Reports API
 export const reportsApi = {
     async getReports({
@@ -338,6 +369,10 @@ export const profilesApi = {
         return await apiClient.post(`/api/v1/admin/profiles/${id}/2fa-disable`)
     },
 
+    async deleteAllProfileComments(id) {
+        return await apiClient.post(`/api/v1/admin/profiles/${id}/delete-all-comments`)
+    },
+
     async updateProfileUnsuspend(id) {
         return await apiClient.post(`/api/v1/admin/profiles/${id}/unsuspend`)
     },
@@ -352,6 +387,10 @@ export const profilesApi = {
 
     async updateProfileResetPassword(id, payload) {
         return await apiClient.post(`/api/v1/admin/profiles/${id}/reset-password`, payload)
+    },
+
+    async updateProfileRevokeAllSessions(id) {
+        return await apiClient.post(`/api/v1/admin/profiles/${id}/revoke-all-sessions`)
     },
 
     async deleteProfile(id) {
@@ -414,22 +453,40 @@ export const videosApi = {
         direction = 'next',
         search = '',
         limit = 15,
-        sort = null
+        sort = null,
+        local = false
     } = {}) {
-        return await apiClient.get('/api/v1/admin/videos', {
+        const params = {
             cursor: cursor,
             limit: limit,
             q: search,
             sort: sort
-        })
+        }
+
+        if (local) {
+            params.local = 1
+        }
+
+        return await apiClient.get('/api/v1/admin/videos', params)
     },
 
     async getVideo(id) {
         return await apiClient.get(`/api/v1/admin/video/${id}`)
     },
 
-    async getVideoComments(id, { cursor = null, direction = 'next', search = '', limit = 15 }) {
+    async getVideoComments(
+        id,
+        { cursor = null, direction = 'next', search = '', limit = 15, sort = 'newest' }
+    ) {
         return await apiClient.get(`/api/v1/admin/videos/${id}/comments`, {
+            cursor: cursor,
+            limit: limit,
+            sort: sort
+        })
+    },
+
+    async getCommentReplies(id, { cursor = null, direction = 'next', search = '', limit = 15 }) {
+        return await apiClient.get(`/api/v1/admin/comment/${id}/replies`, {
             cursor: cursor,
             limit: limit
         })
@@ -437,6 +494,18 @@ export const videosApi = {
 
     async deleteVideoComment(id) {
         return await apiClient.post(`/api/v1/admin/comments/${id}/delete`)
+    },
+
+    async deleteVideoCommentReply(id) {
+        return await apiClient.post(`/api/v1/admin/replies/${id}/delete`)
+    },
+
+    async getVideoAdminAuditLogs(id, cursor = null) {
+        const params = {
+            cursor: cursor
+        }
+
+        return await apiClient.get(`/api/v1/admin/videos/${id}/admin-auditlog`, params)
     },
 
     async moderateVideo(id, data) {

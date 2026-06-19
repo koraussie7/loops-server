@@ -172,6 +172,11 @@ class AdminAuditLogService
         return $this->log($user, 'profile:avatar_delete', null, $profile, null, 1);
     }
 
+    public function logProfileRevokeAllSessions(User|int $user, $profile)
+    {
+        return $this->log($user, 'profile:revoke_sessions', null, $profile, null, 1);
+    }
+
     public function logProfileDisableTwoFactorAuth(User|int $user, $profile)
     {
         return $this->log($user, 'profile:2fa_disable', null, $profile, null, 1);
@@ -195,6 +200,11 @@ class AdminAuditLogService
     public function logProfileAdminSuspend(User|int $user, $profile)
     {
         return $this->log($user, 'profile:suspend', null, $profile, null, 1);
+    }
+
+    public function logProfileDeleteAllComments(User|int $user, $profile)
+    {
+        return $this->log($user, 'profile:delete_all_comments', null, $profile, null, 1);
     }
 
     public function logProfileAdminUnsuspend(User|int $user, $profile)
@@ -232,6 +242,11 @@ class AdminAuditLogService
         return $this->log($user, 'video:delete', $changes, $video, null, 1);
     }
 
+    public function logPlaylistDelete(User|int $user, $playlist, $changes)
+    {
+        return $this->log($user, 'playlist:delete', $changes, $playlist, null, 1);
+    }
+
     public function logVideoUnpublish(User|int $user, $video, $changes)
     {
         return $this->log($user, 'video:unpublish', $changes, $video, null, 1);
@@ -240,6 +255,11 @@ class AdminAuditLogService
     public function logVideoPublish(User|int $user, $video, $changes)
     {
         return $this->log($user, 'video:publish', $changes, $video, null, 1);
+    }
+
+    public function logVideoModerate(User|int $user, $video, $changes)
+    {
+        return $this->log($user, 'video:moderate', $changes, $video, null, 1);
     }
 
     public function logStarterKitApproved(User|int $user, $starterKit, $changes)

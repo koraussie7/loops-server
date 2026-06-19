@@ -19,15 +19,10 @@
                         @touchend="handleTouchEnd"
                         @click="handleVideoClick"
                     >
-                        <video
-                            ref="videoRef"
-                            class="video-js vjs-default-skin h-full w-full object-contain"
-                            playsinline
-                            :muted="isMuted"
-                            fetchpriority="high"
-                        >
-                            <source :src="videoUrl" type="video/mp4" />
-                        </video>
+                        <div
+                            ref="playerContainer"
+                            class="clappr-wrapper h-full w-full"
+                        ></div>
 
                         <div
                             v-if="isSensitive && !isSensitiveRevealed"
@@ -59,6 +54,23 @@
                                 <i class="bx bx-play text-[40px] sm:text-[60px] text-white"></i>
                             </button>
                         </div>
+
+                        <!-- Commerce: Product Tags Overlay -->
+                        <ProductTag
+                            :products="videoProducts"
+                            :current-time="currentTime"
+                            :video-duration="videoDuration"
+                            @interaction="handleProductInteraction"
+                            class="pointer-events-auto"
+                        />
+
+                        <!-- DADA AI Blockchain Rewards Badge -->
+                        <DadaRewardBadge
+                            :earned-tokens="rewardEarnedTokens"
+                            :is-tracking="rewardIsTracking"
+                            :reward-per-second="10"
+                            :visible="authStore.authenticated"
+                        />
 
                         <div
                             v-if="!isPaused && showMobilePauseButton && isMobile && canInteract"
@@ -407,13 +419,21 @@ import { useCommentStore } from '~/stores/comments'
 import { useFeedInteraction } from '~/composables/useFeedInteraction'
 import ShareModal from '@/components/Feed/ShareModal.vue'
 import Comments from '@/components/Status/Comments.vue'
-import videojs from 'video.js'
-import 'video.js/dist/video-js.css'
+import Clappr from '@clappr/player'
 import LoopLink from '../LoopLink.vue'
 import { useReportModal } from '@/composables/useReportModal'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useAlertModal } from '@/composables/useAlertModal.js'
 import { useI18n } from 'vue-i18n'
+import P2PEngineMedia from '@swarmcloud/media'
+
+// Commerce
+import ProductTag from '@/components/Commerce/ProductTag.vue'
+import axios from 'axios'
+
+// ── DADA AI Blockchain Video Rewards ──
+import { useVideoRewards } from '~/composables/useVideoRewards'
+import DadaRewardBadge from '@/components/Feed/DadaRewardBadge.vue'
 
 const props = defineProps({
     videoId: { type: String, required: true },
@@ -445,7 +465,7 @@ const videoStore = inject('videoStore')
 const showMenu = ref(false)
 const showComments = ref(false)
 const commentStore = useCommentStore()
-const videoRef = ref(null)
+const playerContainer = ref(null)
 const isPaused = ref(true)
 const likeCount = ref(0)
 const bookmarksCount = ref(0)
@@ -457,12 +477,43 @@ const isSensitiveRevealed = ref(false)
 const pendingPlay = ref(false)
 const { openReportModal } = useReportModal()
 const queryClient = useQueryClient()
+
+// ── DADA AI Blockchain Rewards ──
+const {
+    earnedTokens: rewardEarnedTokens,
+    isTracking: rewardIsTracking,
+    accumulatedSeconds: rewardAccumulatedSeconds,
+    startWatching: rewardStartWatching,
+    stopWatching: rewardStopWatching,
+    fetchRewardStatus: rewardFetchStatus
+} = useVideoRewards()
 const { alertModal, confirmModal } = useAlertModal()
 const { t } = useI18n()
 const videoWidth = ref(null)
 const videoHeight = ref(null)
 const videoOrientation = ref('portrait')
 const shouldShowComments = computed(() => commentStore.shouldKeepCommentsOpen)
+
+// Commerce
+const currentTime = ref(0)
+const videoDuration = ref(0)
+const videoProducts = ref([])
+const productsLoaded = ref(false)
+
+async function fetchVideoProducts() {
+    if (productsLoaded.value) return
+    try {
+        const { data } = await axios.get(`/api/v1/commerce/products/by-video/${props.videoId}`)
+        videoProducts.value = data.products || []
+        productsLoaded.value = true
+    } catch (e) {
+        console.warn('Failed to fetch video products:', e)
+    }
+}
+
+function handleProductInteraction(event) {
+    emit('interaction', event)
+}
 
 const {
     hasInteracted: hasGlobalInteraction,
@@ -485,28 +536,13 @@ const displayCommentCount = computed(() => {
 })
 
 const videoAspectClass = computed(() => {
-    if (!videoWidth.value || !videoHeight.value) {
-        return 'lg:max-w-sm xl:max-w-md 2xl:max-w-lg lg:aspect-[9/16]'
-    }
-
-    const aspectRatio = videoWidth.value / videoHeight.value
-
-    if (videoOrientation.value === 'portrait') {
-        return 'lg:max-w-sm xl:max-w-md 2xl:max-w-lg lg:aspect-[9/16]'
-    } else if (videoOrientation.value === 'landscape') {
-        return 'lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl lg:aspect-[16/9]'
-    } else {
-        return 'lg:max-w-2xl xl:max-w-3xl 2xl:max-w-4xl lg:aspect-square'
-    }
+    // All videos are now optimized to 9:16 portrait (720×1280)
+    return 'lg:max-w-sm xl:max-w-md 2xl:max-w-lg lg:aspect-[9/16]'
 })
 
 const videoAspectStyle = computed(() => {
-    if (!videoWidth.value || !videoHeight.value) return {}
-
-    const aspectRatio = videoWidth.value / videoHeight.value
-
     return {
-        '--video-aspect-ratio': aspectRatio
+        '--video-aspect-ratio': 9 / 16
     }
 })
 
@@ -610,10 +646,10 @@ const handleVideoClick = async (e) => {
     } else if (isMobile.value) {
         pause()
     } else {
-        if (player && !player.paused()) {
-            pause()
+        if (player && !player.isPlaying()) {
+            await play()
         } else {
-            await handlePlayClick()
+            pause()
         }
     }
 }
@@ -670,8 +706,90 @@ const toggleMute = () => {
     if (player) {
         const newMutedState = !isMuted.value
         setGlobalMuted(newMutedState)
-        player.muted(newMutedState)
+        if (newMutedState) {
+            player.mute()
+        } else {
+            player.unmute()
+        }
     }
+}
+
+const setupClappr = (p2pUrl) => {
+    if (!playerContainer.value) return
+
+    player = new Clappr.Player({
+        source: p2pUrl || props.videoUrl,
+        parentId: playerContainer.value,
+        width: '100%',
+        height: '100%',
+        autoPlay: false,
+        mute: true,
+        loop: true,
+        mediacontrol: {
+            seekbar: '#FFF',
+            buttons: '#FFF'
+        }
+    })
+
+    player.on('ready', () => {
+        playerReady.value = true
+
+        if (props.altText) {
+            const el = player.el().querySelector('video')
+            if (el) {
+                el.setAttribute('aria-label', props.altText)
+            }
+        }
+    })
+
+    player.on('play', () => {
+        isPaused.value = false
+        if (hasGlobalInteraction.value) {
+            if (isMuted.value) {
+                player.mute()
+            } else {
+                player.unmute()
+            }
+        }
+
+        // ── DADA AI: Start reward tracking ──
+        if (authStore.authenticated && props.videoId) {
+            rewardStartWatching(props.videoId, props.caption?.slice(0, 200))
+        }
+    })
+
+    player.on('pause', () => {
+        isPaused.value = true
+        showMobilePauseButton.value = false
+
+        // ── DADA AI: Stop reward tracking ──
+        if (authStore.authenticated && rewardIsTracking.value) {
+            rewardStopWatching()
+        }
+    })
+
+    player.on('error', (e) => {
+        console.error('Clappr error:', e, props.videoId)
+        playerReady.value = false
+    })
+
+    // Force 9:16 TikTok portrait — all videos optimized to 720×1280
+    player.on('container:loadedmetadata', () => {
+        const videoEl = player.el().querySelector('video')
+        if (videoEl) {
+            videoWidth.value = videoEl.videoWidth
+            videoHeight.value = videoEl.videoHeight
+            videoOrientation.value = 'portrait'
+        }
+    })
+
+    // Commerce: Track playback time + fetch products
+    player.on('timeupdate', () => {
+        currentTime.value = player.getCurrentTime()
+        videoDuration.value = player.getDuration()
+    })
+
+    fetchVideoProducts()
 }
 
 onMounted(async () => {
@@ -687,72 +805,20 @@ onMounted(async () => {
         await checkCommentDrawer()
     }
 
-    if (videoRef.value) {
-        player = videojs(videoRef.value, {
-            controls: false,
-            autoplay: false,
-            preload: 'auto',
-            loop: true,
-            fluid: true,
-            muted: true,
-            playbackRates: [0.5, 1, 1.5, 2],
-            controlBar: {
-                children: [
-                    'playToggle',
-                    'volumePanel',
-                    'progressControl',
-                    'remainingTimeDisplay',
-                    'playbackRateMenuButton',
-                    'fullscreenToggle'
-                ]
-            }
+    // ── SwarmCloud P2P: proxy video URL ──
+    let p2pUrl = props.videoUrl
+    try {
+        const engine = new P2PEngineMedia({
+            // token: '', // Register at https://oms.cdnbye.com for production
         })
-        player.on('ready', () => {
-            playerReady.value = true
-
-            if (props.altText) {
-                const el = player.el().querySelector('video')
-
-                if (el) {
-                    el.setAttribute('aria-label', props.altText)
-                }
-            }
-        })
-
-        player.on('loadedmetadata', () => {
-            const videoElement = player.tech({ IWillNotUseThisInPlugins: true }).el()
-
-            if (videoElement) {
-                videoWidth.value = videoElement.videoWidth
-                videoHeight.value = videoElement.videoHeight
-
-                const aspectRatio = videoWidth.value / videoHeight.value
-
-                if (aspectRatio < 0.95) {
-                    videoOrientation.value = 'portrait'
-                } else if (aspectRatio > 1.05) {
-                    videoOrientation.value = 'landscape'
-                } else {
-                    videoOrientation.value = 'square'
-                }
-            }
-        })
-
-        player.on('play', function () {
-            isPaused.value = false
-            if (hasGlobalInteraction.value) {
-                player.muted(isMuted.value)
-            }
-        })
-        player.on('pause', function () {
-            isPaused.value = true
-            showMobilePauseButton.value = false
-        })
-        player.on('error', function (e) {
-            console.error('Video error:', e, props.videoId)
-            playerReady.value = false
-        })
+        const proxied = await engine.getProxiedUrl(props.videoUrl)
+        if (proxied) p2pUrl = proxied
+    } catch (e) {
+        console.warn('SwarmCloud P2P init failed, using direct URL:', e)
     }
+
+    // ── Clappr Player ──
+    setupClappr(p2pUrl)
 })
 
 watch(
@@ -776,8 +842,14 @@ onUnmounted(() => {
     if (touchTimeout.value) clearTimeout(touchTimeout.value)
     if (longPressTimeout.value) clearTimeout(longPressTimeout.value)
     commentStore.clearComments(props.videoId)
+
+    // ── DADA AI: Stop reward tracking on unmount ──
+    if (rewardIsTracking.value) {
+        rewardStopWatching()
+    }
+
     if (player) {
-        player.dispose()
+        player.destroy()
         player = null
     }
 })
@@ -790,34 +862,11 @@ const play = async () => {
     if (!canInteract.value) return Promise.resolve()
     try {
         isVisible.value = true
-        if (!playerReady.value) {
-            await new Promise((resolve) => {
-                player.one('ready', resolve)
-                setTimeout(resolve, 3000)
-            })
-        }
-        if (player.readyState() < 2) {
-            player.load()
-            await new Promise((resolve) => {
-                const checkReady = () => {
-                    if (player.readyState() >= 2) resolve()
-                    else setTimeout(checkReady, 50)
-                }
-                checkReady()
-            })
-        }
-        player.muted(hasGlobalInteraction.value ? isMuted.value : true)
-        await player.play()
+        player.mute()
+        player.play()
         isPaused.value = false
     } catch (error) {
-        try {
-            player.muted(true)
-            await player.play()
-            isPaused.value = false
-        } catch (retryError) {
-            console.error('Failed to play video even when muted:', retryError)
-            throw retryError
-        }
+        console.error('Failed to play video:', error)
     }
 }
 
@@ -855,7 +904,6 @@ const toggleComments = async (e) => {
 
     const opening = !showComments.value
     if (opening) {
-        // Make sure Comments sees this video as the current one before it renders.
         setCurrentVideoForComments()
     }
 
@@ -885,13 +933,7 @@ const handlePlayClick = async () => {
 }
 
 const preload = async () => {
-    if (player && player.readyState() < 1) {
-        try {
-            player.load()
-        } catch (error) {
-            console.warn('Failed to preload video:', error)
-        }
-    }
+    // Clappr handles preloading internally
 }
 
 const cleanup = () => {
@@ -997,62 +1039,23 @@ defineExpose({
     }
 }
 
-.video-js {
-    font-size: 14px;
-}
-
-.video-js .vjs-control-bar {
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-}
-
-.video-js .vjs-progress-control {
-    position: absolute;
+.clappr-wrapper {
+    position: relative;
     width: 100%;
-    bottom: 3.5em;
-    height: 0.5em;
-}
-
-.video-js .vjs-progress-control:hover {
-    height: 1em;
-    transform: translateY(0.25em);
-}
-
-.video-js .vjs-progress-holder {
     height: 100%;
 }
 
-.video-js .vjs-play-progress {
-    background-color: #fff;
+.clappr-wrapper :deep(.clappr-player) {
+    width: 100% !important;
+    height: 100% !important;
 }
 
-.video-js .vjs-big-play-button {
-    background-color: transparent !important;
-    border: none;
-    border-radius: 50%;
-    width: 3em;
-    height: 3em;
-    line-height: 3em;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+.clappr-wrapper :deep(.media-control) {
+    background: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%);
 }
 
-.video-js:hover .vjs-big-play-button {
-    background-color: transparent;
-}
-
-.video-js .vjs-volume-panel {
-    margin-right: 0.5em;
-}
-
-.video-js .vjs-time-control {
-    padding-left: 0.5em;
-    padding-right: 0.5em;
-}
-
-.video-js .vjs-playback-rate .vjs-menu {
-    width: 8em;
+.clappr-wrapper :deep(.media-control[data-media-control="true"]) {
+    opacity: 1;
 }
 
 .play-overlay {
@@ -1177,7 +1180,7 @@ defineExpose({
         overflow-x: hidden;
     }
 
-    .video-js {
+    .clappr-wrapper {
         width: 100% !important;
         height: 100% !important;
     }

@@ -112,13 +112,13 @@
 
             <div
                 v-if="currentVideo.media"
-                class="absolute object-cover w-full my-auto z-[-1] h-screen bg-black bg-center bg-cover blur-2xl opacity-50"
+                class="absolute object-cover w-full my-auto z-[-1] h-dvh bg-black bg-center bg-cover blur-2xl opacity-50"
                 :style="`background-image: url(${currentVideo.media.thumbnail})`"
             ></div>
 
             <div
                 v-if="!isVideoLoaded"
-                class="flex items-center justify-center bg-black h-screen lg:min-w-[480px]"
+                class="flex items-center justify-center bg-black h-dvh lg:min-w-[480px]"
             >
                 <div class="text-center">
                     <Spinner class="h-12 w-12 text-white mx-auto mb-4" />
@@ -128,7 +128,7 @@
                 </div>
             </div>
 
-            <div class="bg-black lg:min-w-[480px] relative">
+            <div class="bg-black w-full lg:min-w-[480px] relative h-full overflow-hidden">
                 <video
                     v-if="currentVideo.media"
                     ref="videoRef"
@@ -136,7 +136,7 @@
                     :controls="showControls"
                     playsinline
                     preload="auto"
-                    class="h-screen mx-auto"
+                    class="h-full mx-auto"
                     :class="{ 'opacity-0': !isVideoLoaded }"
                     :aria-label="currentVideo.media.alt_text"
                     :src="currentVideo.media.src_url"
@@ -314,7 +314,9 @@
             </div>
 
             <div class="flex-shrink-0">
-                <div class="flex items-center px-8 mt-4 justify-between">
+                <div
+                    class="grid grid-cols-2 gap-y-2 px-4 mt-4 sm:flex sm:items-center sm:justify-between sm:px-8"
+                >
                     <div class="pb-4 text-center flex items-center">
                         <button
                             @click="currentVideo.has_liked == true ? unlikePost() : likePost()"
@@ -334,6 +336,7 @@
                             class="text-sm pl-2 pr-4 text-gray-800 dark:text-slate-500 font-semibold hover:text-[#F02C56] dark:hover:text-[#F02C56] transition-colors cursor-pointer"
                         >
                             {{ formatCount(currentVideo.likes) }}
+                            <span class="inline-flex md:hidden">Likes</span>
                         </button>
                     </div>
 
@@ -347,6 +350,7 @@
                             class="text-sm pl-2 pr-4 text-gray-800 dark:text-slate-500 font-semibold"
                         >
                             {{ formatCount(currentVideo.comments) }}
+                            <span class="inline-flex md:hidden">Comments</span>
                         </span>
                     </div>
 
@@ -362,6 +366,7 @@
                             class="text-sm pl-2 pr-4 text-gray-800 dark:text-slate-500 font-semibold hover:text-[#F02C56] dark:hover:text-[#F02C56] transition-colors cursor-pointer"
                         >
                             {{ formatCount(currentVideo.shares) }}
+                            <span class="inline-flex md:hidden">Shares</span>
                         </button>
                     </div>
 
@@ -380,7 +385,26 @@
                             class="text-sm pl-2 pr-4 text-gray-800 dark:text-slate-500 font-semibold"
                         >
                             {{ formatCount(currentVideo.bookmarks) }}
+                            <span class="inline-flex md:hidden">Saves</span>
                         </span>
+                    </div>
+
+                    <div
+                        v-if="currentVideo.permissions.can_embed"
+                        class="pb-4 text-center flex items-center"
+                    >
+                        <button class="flex items-center cursor-pointer" @click="handleEmbed">
+                            <div
+                                class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:hover:bg-slate-700 dark:bg-slate-800 dark:text-slate-50"
+                            >
+                                <CodeBracketIcon class="h-4 w-4 text-gray-400" />
+                            </div>
+                            <span
+                                class="text-sm pl-2 pr-4 text-gray-800 dark:text-slate-500 font-semibold"
+                            >
+                                Embed
+                            </span>
+                        </button>
                     </div>
 
                     <div
@@ -388,12 +412,16 @@
                         class="pb-4 text-center flex items-center"
                     >
                         <div class="relative">
-                            <button @click="showMenu = !showMenu">
+                            <button @click="showMenu = !showMenu" class="flex items-center">
                                 <div
                                     class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:hover:bg-slate-700 dark:bg-slate-800 dark:text-slate-50 cursor-pointer"
                                 >
                                     <EllipsisVerticalIcon class="h-5 w-5" />
                                 </div>
+                                <span
+                                    class="inline-flex md:hidden text-sm pl-2 pr-4 text-gray-800 dark:text-slate-500 font-semibold"
+                                    >Menu</span
+                                >
                             </button>
 
                             <div
@@ -414,15 +442,66 @@
                     </div>
                 </div>
 
-                <div class="flex justify-center px-8 mb-3">
+                <div class="hidden md:flex justify-center px-8 mb-3">
                     <UrlCopyInput :url="`${currentVideo.url}`" />
                 </div>
             </div>
 
             <div
-                class="flex-1 min-h-0 border-t-2 border-gray-100 dark:border-slate-800 bg-[#F8F8F8] dark:bg-slate-900"
+                class="flex-1 min-h-0 border-t-2 border-gray-100 dark:border-slate-800 bg-[#F8F8F8] dark:bg-slate-900 flex flex-col"
             >
-                <Comments />
+                <div
+                    v-if="hasPlaylist"
+                    class="flex-shrink-0 flex border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950"
+                >
+                    <button
+                        @click="activeTab = 'playlist'"
+                        class="flex-1 relative py-3 text-sm font-semibold transition-colors cursor-pointer"
+                        :class="
+                            activeTab === 'playlist'
+                                ? 'text-[#F02C56]'
+                                : 'text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200'
+                        "
+                    >
+                        Playlist
+                        <span
+                            v-if="activeTab === 'playlist'"
+                            class="absolute bottom-0 left-0 right-0 h-0.5 bg-[#F02C56]"
+                        ></span>
+                    </button>
+                    <button
+                        @click="activeTab = 'comments'"
+                        class="flex-1 relative py-3 text-sm font-semibold transition-colors cursor-pointer"
+                        :class="
+                            activeTab === 'comments'
+                                ? 'text-[#F02C56]'
+                                : 'text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200'
+                        "
+                    >
+                        {{ $t('post.comments') }}
+                        <span
+                            v-if="currentVideo?.comments"
+                            class="ml-1 text-xs font-medium text-gray-400 dark:text-slate-500"
+                        >
+                            {{ formatCount(currentVideo.comments) }}
+                        </span>
+                        <span
+                            v-if="activeTab === 'comments'"
+                            class="absolute bottom-0 left-0 right-0 h-0.5 bg-[#F02C56]"
+                        ></span>
+                    </button>
+                </div>
+
+                <div class="flex-1 min-h-0">
+                    <PlaylistPanel
+                        v-if="hasPlaylist"
+                        v-show="activeTab === 'playlist'"
+                        :playlist-id="playlistId"
+                        :current-video-hid="route.params.id"
+                        @error="onPlaylistError"
+                    />
+                    <Comments v-show="!hasPlaylist || activeTab === 'comments'" />
+                </div>
             </div>
         </div>
 
@@ -452,6 +531,12 @@
             :url="currentVideo?.url"
             :share-text="`Check out ${currentVideo?.account?.username}'s loop`"
         />
+
+        <EmbedShareModal
+            :open="showEmbedModal"
+            :video="currentVideo"
+            @close="showEmbedModal = false"
+        />
     </div>
 </template>
 
@@ -466,6 +551,7 @@ import { useHashids } from '@/composables/useHashids'
 import { useAlertModal } from '@/composables/useAlertModal.js'
 import { useUtils } from '@/composables/useUtils'
 import { useEditHistory } from '@/composables/useEditHistory'
+import PlaylistPanel from '@/components/Status/PlaylistPanel.vue'
 import {
     ArrowPathIcon,
     VideoCameraSlashIcon,
@@ -482,7 +568,8 @@ import {
     FlagIcon,
     EyeIcon,
     ArrowLeftIcon,
-    PlayIcon
+    PlayIcon,
+    CodeBracketIcon
 } from '@heroicons/vue/24/outline'
 import { BookmarkIcon as SolidBookmark } from '@heroicons/vue/24/solid'
 import UrlCopyInput from '@/components/Form/UrlCopyInput.vue'
@@ -492,6 +579,7 @@ import EditHistoryModal from '@/components/Status/EditHistoryModal.vue'
 import InteractionModal from '@/components/Status/InteractionModal.vue'
 import { useReportModal } from '@/composables/useReportModal'
 import ShareVideoModal from '@/components/Status/ShareVideoModal.vue'
+import EmbedShareModal from '@/components/Status/EmbedShareModal.vue'
 
 const { openVideoHistory } = useEditHistory()
 
@@ -521,6 +609,16 @@ const isPlaying = ref(false)
 const showControls = ref(false)
 const controlsTimeout = ref(null)
 const showShareModal = ref(false)
+const showEmbedModal = ref(false)
+const activeTab = ref('playlist')
+const playlistId = computed(() => route.query.playlist_id)
+const playlistFailed = ref(false)
+const hasPlaylist = computed(() => !!route.query.playlist_id && !playlistFailed.value)
+
+const onPlaylistError = () => {
+    playlistFailed.value = true
+    activeTab.value = 'comments'
+}
 
 const currentVideo = computed(() => videoStore.video)
 const userId = computed(() => authStore.id)
@@ -552,6 +650,10 @@ const retryLoad = async () => {
 
 const goHome = () => {
     router.push('/')
+}
+
+const handleEmbed = () => {
+    showEmbedModal.value = true
 }
 
 const handleViewSensitiveContent = () => {
@@ -876,6 +978,24 @@ watch(isVideoLoaded, (newVal) => {
     ) {
     }
 })
+
+watch(
+    () => route.params.id,
+    () => {
+        isVideoLoading.value = true
+        isVideoLoaded.value = false
+        error.value = null
+        loadPost()
+    }
+)
+
+watch(
+    () => route.query.playlist_id,
+    () => {
+        playlistFailed.value = false
+        activeTab.value = 'playlist'
+    }
+)
 
 const likePost = async () => {
     if (!authStore.isAuthenticated) {
