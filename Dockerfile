@@ -54,8 +54,8 @@ COPY --from=node /usr/local/bin /usr/local/bin
 COPY --from=node /usr/local/lib /usr/local/lib
 
 # Install npm dependencies and build assets
-RUN npm install
 ENV NODE_ENV="production"
+RUN npm install --include=dev
 RUN npm run build
 
 # ── CDN: Remove cache/security headers from nginx (Caddy handles at edge) ──

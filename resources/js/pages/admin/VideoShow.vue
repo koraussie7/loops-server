@@ -1339,7 +1339,7 @@ const videoEl = ref(null)
 const loadAuditLogs = ref(localStorage.getItem('loops_admin_video_auditLogAutoLoad') || false)
 const auditLogs = ref([])
 const auditCursor = ref(null)
-const auditLogExpand = ref(localStorage.getItem('loops_admin_video_auditLogAutoLoad') || false)
+const auditLogExpand = ref(localStorage.getItem('loops_admin_video_auditLogExpand') || false)
 const hasMoreAudits = ref(false)
 const isLoadingAudits = ref(false)
 const isLoadingMoreAudits = ref(false)
@@ -1369,7 +1369,7 @@ const formatValue = (val) => {
     return String(val)
 }
 
-const statusBadge = computed(() => statusBadgeStyles[profile.value?.status] || defaultBadge)
+const statusBadge = computed(() => statusBadgeStyles[video.value?.status] || defaultBadge)
 
 const statusBadgeClasses = computed(() => {
     const status = video.value?.status

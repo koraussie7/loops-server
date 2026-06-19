@@ -38,3 +38,5 @@ tiktok/
 /storage/app
 public/loops-embed.js
 public/embed.js
+.eslintrc-auto-import.json
+
