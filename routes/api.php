@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\AffiliateController;
 use App\Http\Controllers\Api\LiveCommerceController;
 use App\Http\Controllers\Api\AutoStoreController;
 use App\Http\Controllers\Api\RewardController;
+use App\Http\Controllers\Api\MinimaAuthController;
 use App\Http\Controllers\AppleAuthController;
 use App\Http\Controllers\AtomFeedController;
 use App\Http\Controllers\Auth\AccountSwitcherController;
@@ -105,6 +106,10 @@ Route::group(['prefix' => '.well-known'], function () {
 });
 
 Route::post('/auth/start', [WebPublicController::class, 'authStartFallback']);
+
+// Minima wallet authentication
+Route::post('/api/auth/minima/challenge', [MinimaAuthController::class, 'challenge']);
+Route::post('/api/auth/minima', [MinimaAuthController::class, 'authenticate']);
 
 Route::prefix('api/v1/auth')
     ->middleware(['web'])
@@ -335,6 +340,7 @@ Route::prefix('api')->group(function () {
     Route::get('/v1/explore/tags', [ExploreController::class, 'getTrendingTags'])->middleware('throttle:api');
     Route::get('/v1/explore/tag-feed/{id}', [ExploreController::class, 'getTagFeed'])->middleware('throttle:api');
 
+    Route::get('/v1/explore/latest', [ExploreController::class, 'getLatest'])->middleware('throttle:api');
     Route::get('/v1/tags/video/{id}', [WebPublicController::class, 'getVideoTags'])->middleware('throttle:api');
 
     // Global Feeds
