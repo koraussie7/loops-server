@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Traits\ApiHelpers;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\VideoResource;
+use App\Models\Video;
 use App\Http\Resources\VideoHashtagResource;
 use App\Models\VideoHashtag;
 use App\Services\ExploreService;
@@ -115,6 +117,25 @@ class ExploreController extends Controller
 
         return VideoHashtagResource::collection($feed);
     }
+
+    public function getLatest(Request $request)
+    {
+        $validated = $request->validate([
+            'cursor' => 'sometimes|string|max:2000',
+            'limit' => 'sometimes|integer|min:1|max:30',
+        ]);
+
+        $limit = $validated['limit'] ?? 15;
+        $preCursor = $validated['cursor'] ?? null;
+
+        $videos = Video::published()
+            ->orderBy('created_at', 'desc')
+            ->cursorPaginate($limit)
+            ->withQueryString();
+
+        return VideoResource::collection($videos);
+    }
+
 
     public function defaultTagResponse($request, $limit)
     {

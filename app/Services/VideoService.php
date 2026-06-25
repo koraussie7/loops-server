@@ -79,15 +79,20 @@ class VideoService
                 if ($video->thumbnail) {
                     $thumb = $video->thumbnail;
                 } elseif ($video->thumbnail_path) {
-                    $thumb = Storage::disk('s3')->url($video->thumbnail_path);
+                    $thumb = Storage::disk('public')->url($video->thumbnail_path);
                 } else {
                     $ext = pathinfo($video->vid, PATHINFO_EXTENSION);
                     $url = str_replace('.'.$ext, '.jpg', $video->vid);
-                    $thumb = Storage::disk('s3')->url($url);
+                    $thumb = Storage::disk('public')->url($url);
                 }
             }
 
-            $mediaUrl = Storage::disk('s3')->url($video->vid_optimized);
+            $mediaUrl = null;
+            if ($video->vid_optimized) {
+                $mediaUrl = Storage::disk('public')->url($video->vid_optimized . '.mp4');
+            } elseif ($video->vid) {
+                $mediaUrl = Storage::disk('public')->url('videos/' . $video->vid . '.mp4');
+            }
             $captionText = Str::limit($video->caption ?? 'Untitled loop', 20);
             $captionText .= " • $video->likes likes • $video->comments comments";
 
