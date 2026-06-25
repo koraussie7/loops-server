@@ -1,5 +1,33 @@
 <template>
     <TikTokLayout>
+        <!-- Hashtag pills / mode selector -->
+        <div v-if="!loading" class="flex items-center gap-2 px-4 py-3 overflow-x-auto no-scrollbar bg-black border-b border-white/10">
+            <button
+                @click="setMode('all')"
+                :class="[
+                    'flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap',
+                    mode === 'all'
+                        ? 'bg-white text-black'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                ]"
+            >
+                All
+            </button>
+            <button
+                v-for="hashtag in hashtags"
+                :key="hashtag.id"
+                @click="setActiveHashtag(hashtag)"
+                :class="[
+                    'flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap',
+                    activeHashtag?.id === hashtag.id
+                        ? 'bg-white text-black'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                ]"
+            >
+                #{{ hashtag.name }}
+            </button>
+        </div>
+
         <SnapScrollFeed
             v-if="!loading"
             key="explore-feed"
@@ -21,14 +49,16 @@
 
         <div v-else-if="currentVideos.length === 0" class="flex items-center justify-center min-h-screen bg-black">
             <div class="text-center text-white/50">
-                <p class="text-lg">{{ $t('explore.noVideosFoundForThisHashtag') }}</p>
+                <p class="text-lg">
+                    {{ mode === 'all' ? 'No videos uploaded yet' : $t('explore.noVideosFoundForThisHashtag') }}
+                </p>
             </div>
         </div>
     </TikTokLayout>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, inject, ref, watch, nextTick } from 'vue'
+import { onMounted, computed, inject, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUtils } from '@/composables/useUtils'
 import TikTokLayout from '~/layouts/TikTokLayout.vue'
@@ -50,10 +80,11 @@ const {
     loadingMore,
     error,
     hasMore,
-    totalResults
+    totalResults,
+    mode
 } = storeToRefs(exploreStore)
 
-const { fetchHashtags, setActiveHashtag, loadMore } = exploreStore
+const { fetchHashtags, setActiveHashtag, loadMore, setMode } = exploreStore
 
 // Map explore videos to feed format
 const feedData = computed(() => {

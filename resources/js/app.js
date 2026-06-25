@@ -20,6 +20,7 @@ import StudioLayout from '@/layouts/StudioLayout.vue'
 
 import '../css/fonts.css'
 import '../sass/next.css'
+import '../css/dtube.css'
 
 const app = createApp(App)
 

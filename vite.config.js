@@ -12,6 +12,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/css/fonts.css',
                 'resources/sass/next.css',
+                'resources/css/dtube.css',
                 'resources/js/embed.js',
                 'resources/css/embed.css'
             ],
