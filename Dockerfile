@@ -70,3 +70,17 @@ USER www-data
 
 # Expose port 8080 (default for serversideup/php)
 EXPOSE 8080
+# ── Local video/media serving (added 2026-08-06 fix) ──
+RUN printf '%s\n' '' '# Local video/media serving (added 2026-08-06 fix)' \
+    'location ^~ /videos/ {' \
+    '    alias /var/www/html/storage/app/public/videos/;' \
+    '    try_files $uri =404;' \
+    '    add_header Cache-Control "public, max-age=604800";' \
+    '    access_log off;' \
+    '}' \
+    'location ^~ /storage/app/public/videos/ {' \
+    '    alias /var/www/html/storage/app/public/videos/;' \
+    '    try_files $uri =404;' \
+    '    add_header Cache-Control "public, max-age=604800";' \
+    '    access_log off;' \
+    '}' >> /etc/nginx/site-opts.d/http.conf

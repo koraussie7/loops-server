@@ -40,3 +40,10 @@ public/loops-embed.js
 public/embed.js
 .eslintrc-auto-import.json
 
+
+# Local junk
+composer.phar
+composer-setup.php
+im.php
+loops_db_dump.sql
+Dockerfile.bak-*
