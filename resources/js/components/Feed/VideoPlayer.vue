@@ -21,6 +21,7 @@
                     >
                         <div
                             ref="playerContainer"
+                            :id="'player-' + videoId"
                             class="clappr-wrapper h-full w-full"
                         ></div>
 
@@ -719,7 +720,7 @@ const setupClappr = (p2pUrl) => {
 
     player = new Clappr.Player({
         source: p2pUrl || props.videoUrl,
-        parentId: playerContainer.value,
+        parentId: '#player-' + props.videoId,
         width: '100%',
         height: '100%',
         autoPlay: false,

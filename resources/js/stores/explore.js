@@ -12,11 +12,32 @@ export const useExploreStore = defineStore('explore', () => {
     const error = ref(null)
     const hasMore = ref(true)
     const cursor = ref(null)
+    // 'all' shows latest videos; 'tag' shows hashtag-filtered videos
+    const mode = ref(null)
 
     const currentVideos = computed(() => {
-        if (!activeHashtag.value) return []
         return videos.value
     })
+
+    const fetchLatest = async () => {
+        try {
+            loading.value = true
+            error.value = null
+
+            const axiosInstance = axios.getAxiosInstance()
+            const res = await axiosInstance.get('/api/v1/explore/latest')
+
+            videos.value = res.data.data.filter((v) => v.id && v.account)
+
+            cursor.value = res.data.meta?.next_cursor
+            hasMore.value = res.data.meta?.next_cursor != undefined
+        } catch (err) {
+            error.value = 'Failed to fetch videos'
+            console.error('Error fetching latest videos:', err)
+        } finally {
+            loading.value = false
+        }
+    }
 
     const fetchHashtags = async () => {
         try {
@@ -28,14 +49,13 @@ export const useExploreStore = defineStore('explore', () => {
 
             hashtags.value = res.data.data
 
-            if (res.data.data.length > 0) {
-                activeHashtag.value = res.data.data[0]
-                totalResults.value = res.data.data[0].count
-                await fetchVideosByHashtag(activeHashtag.value.name)
-            }
+            // Always default to 'all' mode to show latest videos
+            await setMode('all')
         } catch (err) {
             error.value = 'Failed to fetch hashtags'
             console.error('Error fetching hashtags:', err)
+            // Still try to load latest even if hashtags fail
+            await fetchLatest()
         } finally {
             loading.value = false
         }
@@ -61,20 +81,38 @@ export const useExploreStore = defineStore('explore', () => {
         }
     }
 
-    const setActiveHashtag = async (hashtag) => {
-        if (activeHashtag.value?.id !== hashtag.id) {
-            activeHashtag.value = hashtag
-            totalResults.value = hashtag.count
-            loadingMore.value = false
-            cursor.value = null
-            hasMore.value = true
-            await fetchVideosByHashtag(hashtag.name)
-            await nextTick()
+    const setMode = async (newMode) => {
+        if (mode.value === newMode && cursor.value === null) return
+
+        mode.value = newMode
+        activeHashtag.value = null
+        totalResults.value = null
+        loadingMore.value = false
+        cursor.value = null
+        hasMore.value = true
+        videos.value = []
+
+        if (newMode === 'all') {
+            await fetchLatest()
         }
+        await nextTick()
+    }
+
+    const setActiveHashtag = async (hashtag) => {
+        if (activeHashtag.value?.id === hashtag.id) return
+
+        mode.value = 'tag'
+        activeHashtag.value = hashtag
+        totalResults.value = hashtag.count
+        loadingMore.value = false
+        cursor.value = null
+        hasMore.value = true
+        await fetchVideosByHashtag(hashtag.name)
+        await nextTick()
     }
 
     const loadMore = async () => {
-        if (!activeHashtag.value || !hasMore.value || loadingMore.value) {
+        if (!hasMore.value || loadingMore.value) {
             return
         }
 
@@ -82,14 +120,21 @@ export const useExploreStore = defineStore('explore', () => {
             loadingMore.value = true
 
             const axiosInstance = axios.getAxiosInstance()
-            const res = await axiosInstance.get(
-                `/api/v1/explore/tag-feed/${activeHashtag.value.name}`,
-                {
-                    params: {
-                        cursor: cursor.value
-                    }
-                }
-            )
+            let url
+            const params = {
+                cursor: cursor.value
+            }
+
+            if (mode.value === 'all') {
+                url = '/api/v1/explore/latest'
+            } else if (activeHashtag.value) {
+                url = `/api/v1/explore/tag-feed/${activeHashtag.value.name}`
+            } else {
+                loadingMore.value = false
+                return
+            }
+
+            const res = await axiosInstance.get(url, { params })
 
             videos.value = [...videos.value, ...res.data.data.filter((v) => v.id && v.account)]
 
@@ -112,10 +157,13 @@ export const useExploreStore = defineStore('explore', () => {
         error,
         hasMore,
         cursor,
+        mode,
         currentVideos,
+        fetchLatest,
         fetchHashtags,
         fetchVideosByHashtag,
         setActiveHashtag,
+        setMode,
         loadMore
     }
 })

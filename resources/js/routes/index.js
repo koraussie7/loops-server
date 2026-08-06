@@ -3,6 +3,7 @@ import { authMiddleware } from '@/middleware/auth'
 import { useAuthStore } from '@/stores/auth'
 import { initializeAuth } from '@/plugins/auth'
 import DynamicPage from '@/pages/DynamicPage.vue'
+import dtubeRoutes from './dtube'
 
 const router = createRouter({
     history: createWebHistory(),
@@ -645,6 +646,7 @@ const router = createRouter({
                 }
             ]
         },
+                    ...dtubeRoutes,
         {
             path: '/:pathMatch(.*)*',
             name: 'NotFound',

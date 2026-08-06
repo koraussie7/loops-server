@@ -251,6 +251,8 @@ const showGlobalSidebar = computed(() => {
     const path = route.path
     // Hide sidebar on admin pages
     if (path.startsWith('/admin')) return false
+    // Hide on DTube pages (they have their own layout)
+    if (path.startsWith('/dtube')) return false
     // Hide on auth-only pages
     if (path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/auth/')) return false
     if (path.startsWith('/password/')) return false

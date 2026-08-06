@@ -112,6 +112,7 @@ use Laravel\Passport\HasApiTokens;
  * @property string|null $last_ip
  * @property string|null $register_source
  * @property string|null $apple_id
+        'minima_address',\n        'minima_address_verified_at',
  * @property string|null $apple_refresh_token
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Notification> $actorNotifications
  * @property-read int|null $actor_notifications_count
@@ -175,6 +176,8 @@ class User extends Authenticatable implements OAuthenticatable
         'can_report',
         'apple_refresh_token',
         'apple_id',
+        'minima_address',
+        'minima_address_verified_at',
         'register_source',
         'has_atom',
         'hide_ai',

@@ -2,98 +2,131 @@
 
 namespace App\Services;
 
-/**
- * Minima RPC Service — sends commands to Minima node via HTTP RPC.
- */
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
 class MinimaRpcService
 {
-    protected string $rpcHost;
-    protected int $rpcPort = 9005;
-    protected string $rpcUser = 'minima';
-    protected string $rpcPass = 'privseaipwd';
-
-    const DADA_TOKEN_ID = '0x51F4A2CDB46F814C755931991294BCEB7D2827F931D399C19B33FE83C9B1F9EE';
+    protected string $host;
+    protected int $port;
+    protected string $password;
+    protected bool $ssl;
 
     public function __construct()
     {
-        $this->rpcHost = '172.20.0.1';
+        $this->host = config('minima.rpc.host', '185.55.240.110');
+        $this->port = (int) config('minima.rpc.port', 9005);
+        $this->password = config('minima.rpc.password', 'privseairpc');
+        $this->ssl = (bool) config('minima.rpc.ssl', true);
     }
 
-    public function sendCommand(string $command): ?array
+    protected function baseUrl(): string
     {
-        $url = "https://{$this->rpcHost}:{$this->rpcPort}/";
-        $auth = base64_encode("{$this->rpcUser}:{$this->rpcPass}");
-
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $command,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: text/plain',
-                "Authorization: Basic {$auth}",
-            ],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
-        ]);
-
-        $response = curl_exec($ch);
-        $errno = curl_errno($ch);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($errno !== 0) {
-            error_log("MinimaRpc: curl error {$errno}: {$error} | cmd: {$command}");
-            return null;
-        }
-
-        $decoded = json_decode($response, true);
-        if (!$decoded) {
-            error_log("MinimaRpc: JSON parse failed | cmd: {$command}");
-            return null;
-        }
-
-        return $decoded;
+        $scheme = $this->ssl ? 'https' : 'http';
+        return "{$scheme}://{$this->host}:{$this->port}";
     }
 
+    /**
+     * Send a raw command to Minima RPC.
+     */
+    public function sendCommand(string $command, array $params = []): ?array
+    {
+        $url = $this->baseUrl() . '/';
+
+        try {
+            $body = $command;
+            if (!empty($params)) {
+                $body = $command;
+                $query = http_build_query($params);
+                $body = $command . ' ' . $query;
+            }
+
+            $response = Http::timeout(10)
+                ->withOptions(['verify' => false])
+                ->withBody($body, 'text/plain')
+                ->post($url);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Minima RPC error', [
+                'command' => $command,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Minima RPC exception', [
+                'command' => $command,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Send DADA AI tokens to a Minima address.
+     */
+    public function sendDada(string $toAddress, int $amount): ?array
+    {
+        $tokenId = config('minima.dada_tokenid');
+        $command = "send address:{$toAddress} amount:{$amount} tokenid:{$tokenId}";
+        return $this->sendCommand($command);
+    }
+
+    /**
+     * Get wallet balance (all tokens).
+     */
     public function getBalance(): ?array
     {
         return $this->sendCommand('balance');
     }
 
-    public function getDadaBalance(): int
+    /**
+     * Get DADA AI token balance specifically.
+     */
+    public function getDadaBalance(): ?array
     {
-        $result = $this->getBalance();
-        if (!$result || !isset($result['response'])) return 0;
+        $balances = $this->getBalance();
+        if (!$balances || !isset($balances['response'])) {
+            return null;
+        }
 
-        foreach ($result['response'] as $entry) {
-            if (($entry['tokenid'] ?? '') === self::DADA_TOKEN_ID) {
-                return (int) ($entry['confirmed'] ?? 0);
+        $tokenId = config('minima.dada_tokenid');
+        foreach ($balances['response'] as $item) {
+            if (($item['tokenid'] ?? '') === $tokenId) {
+                return $item;
             }
         }
-        return 0;
-    }
 
-    public function getStatus(): ?array
-    {
-        return $this->sendCommand('status');
-    }
-
-    public function newAddress(): ?array
-    {
-        return $this->sendCommand('newaddress');
+        return [
+            'token' => 'DADA AI',
+            'tokenid' => $tokenId,
+            'confirmed' => 0,
+            'sendable' => 0,
+        ];
     }
 
     /**
-     * Send DADA_AI tokens using Minima's named parameter format.
-     * Format: send address:<addr> amount:<amt> tokenid:<tokenid>
+     * Generate a new address.
      */
-    public function sendDada(string $address, int $amount): ?array
+    public function newAddress(): ?string
     {
-        $command = "send address:{$address} amount:{$amount} tokenid:" . self::DADA_TOKEN_ID;
-        return $this->sendCommand($command);
+        $result = $this->sendCommand('newaddress');
+        return $result['response'] ?? null;
     }
+public function verifySignature(string $address, string $data, string $signature): bool
+    {
+        $command = "checksig address:{$address} data:{$data} signature:{$signature}";
+        $result = $this->sendCommand($command);
+
+        if ($result === null) {
+            return false;
+        }
+
+        $raw = $result["response"] ?? false;
+        return filter_var($raw, FILTER_VALIDATE_BOOLEAN);
+    }
+
 }
