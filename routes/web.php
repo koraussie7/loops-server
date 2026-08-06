@@ -27,6 +27,7 @@ Route::get('/starter-kits/{hid}/{slug}', [ObjectController::class, 'showStarterK
 Route::get('v/{hashId}', [ObjectController::class, 'showVideo']);
 Route::get('@{username}', [ObjectController::class, 'showProfile']);
 
+Route::redirect('/', '/@admin');
 Route::view('/{vue?}', 'welcome')->where('vue', '.*');
 
 Auth::routes([
